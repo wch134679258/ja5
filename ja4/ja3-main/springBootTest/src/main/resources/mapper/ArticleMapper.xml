@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  ArticleMapper 的 SQL 实现 —— 首页展示 + 分级分类搜索的检索主干。
+
+  检索维度：
+    关键词   kw         命中 标题 / 摘要 / 正文 / 作者 / 标签串，任一即可（OR）
+    一级分类 categoryId  a.category_id = #{categoryId}
+    二级标签 tagId       EXISTS (article_tag ... AND tag_id = #{tagId})
+    排序     sort        hot=浏览量倒序(默认) / new=发布时间倒序
+
+  有关键词时的排序策略（分数越高越靠前）：
+    2 分  标题命中      —— 用户最可能想要的就是标题里带这个词的
+    1 分  标签命中      —— 标签是人工归纳的主题，相关性次之
+    0 分  仅摘要/正文命中 —— 相关性弱，靠后
+  同分内按热度，再按 id 兜底，保证分页稳定。
+-->
+<mapper namespace="com.fenglin.springboottest.mapper.ArticleMapper">
+
+    <!-- article 表 -> Article 实体 -->
+    <resultMap id="ArticleMap" type="com.fenglin.springboottest.entity.Article">
+        <id     property="id"         column="id"/>
+        <result property="title"      column="title"/>
+        <result property="summary"    column="summary"/>
+        <result property="content"    column="content"/>
+        <result property="author"     column="author"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="category"   column="category"/>
+        <result property="tags"       column="tags"/>
+        <result property="views"      column="views"/>
+        <result property="createdAt"  column="created_at"/>
+        <result property="updatedAt"  column="updated_at"/>
+    </resultMap>
+
+    <!-- ================= 公共条件片段 ================= -->
+
+    <!-- 关键词：空串 / null 视为不过滤 -->
+    <sql id="keywordCond">
+        <if test="kw != null and kw != ''">
+            AND (
+                  a.title   LIKE CONCAT('%', #{kw}, '%')
+               OR a.summary LIKE CONCAT('%', #{kw}, '%')
+               OR a.content LIKE CONCAT('%', #{kw}, '%')
+               OR a.author  LIKE CONCAT('%', #{kw}, '%')
+               OR a.tags    LIKE CONCAT('%', #{kw}, '%')
+               OR EXISTS (
+                    SELECT 1
+                    FROM article_tag at_kw
+                    JOIN tag t_kw ON t_kw.id = at_kw.tag_id
+                    WHERE at_kw.article_id = a.id
+                      AND t_kw.name LIKE CONCAT('%', #{kw}, '%')
+                  )
+            )
+        </if>
+    </sql>
+
+    <!-- 一级分类（分级分类第一级） -->
+    <sql id="categoryCond">
+        <if test="categoryId != null">
+            AND a.category_id = #{categoryId}
+        </if>
+    </sql>
+
+    <!-- 二级标签（分级分类第二级） -->
+    <sql id="tagCond">
+        <if test="tagId != null">
+            AND EXISTS (
+                SELECT 1 FROM article_tag at_f
+                WHERE at_f.article_id = a.id AND at_f.tag_id = #{tagId}
+            )
+        </if>
+    </sql>
+
+    <!--
+      排序：
+        有关键词 -> 相关度打分 DESC，再按 sort 指定的维度
+        无关键词 -> 直接按 sort 指定的维度
+      sort: new=最新(created_at)，其它(默认)=热度(views)
+    -->
+    <sql id="orderBy">
+        <choose>
+            <when test="kw != null and kw != ''">
+                ORDER BY
+                    (CASE WHEN a.title LIKE CONCAT('%', #{kw}, '%') THEN 2 ELSE 0 END
+                   + CASE WHEN EXISTS (
+                            SELECT 1
+                            FROM article_tag at_s
+                            JOIN tag t_s ON t_s.id = at_s.tag_id
+                            WHERE at_s.article_id = a.id
+                              AND t_s.name LIKE CONCAT('%', #{kw}, '%')
+                          ) THEN 1 ELSE 0 END) DESC,
+                    <choose>
+                        <when test="sort != null and sort == 'new'">
+                            a.created_at DESC,
+                        </when>
+                        <otherwise>
+                            a.views DESC,
+                        </otherwise>
+                    </choose>
+                    a.id DESC
+            </when>
+            <otherwise>
+                <choose>
+                    <when test="sort != null and sort == 'new'">
+                        ORDER BY a.created_at DESC, a.id DESC
+                    </when>
+                    <otherwise>
+                        ORDER BY a.views DESC, a.id DESC
+                    </otherwise>
+                </choose>
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!-- ================= 分页搜索 ================= -->
+    <select id="search" resultMap="ArticleMap">
+        SELECT a.id, a.title, a.summary, a.content, a.author,
+               a.category_id, a.category, a.tags, a.views, a.created_at, a.updated_at
+        FROM article a
+        <where>
+            <include refid="keywordCond"/>
+            <include refid="categoryCond"/>
+            <include refid="tagCond"/>
+        </where>
+        <include refid="orderBy"/>
+    </select>
+
+    <!-- ================= 相关文章 ================= -->
+
+    <!--
+      共享标签的相关文章：与当前文章有共同标签的其它文章。
+      按共同标签数量倒序（共同标签越多越相关），再按热度、id 兜底保证稳定。
+      GROUP BY a.id：MySQL 8 认可主键函数依赖，可选中其它文章列。
+    -->
+    <select id="selectRelatedByTags" resultMap="ArticleMap">
+        SELECT a.id, a.title, a.summary, a.content, a.author,
+               a.category_id, a.category, a.tags, a.views, a.created_at, a.updated_at
+        FROM article a
+        JOIN article_tag at_r ON at_r.article_id = a.id
+        WHERE at_r.tag_id IN (
+                SELECT at_me.tag_id FROM article_tag at_me WHERE at_me.article_id = #{id}
+              )
+          AND a.id != #{id}
+        GROUP BY a.id
+        ORDER BY COUNT(at_r.tag_id) DESC, a.views DESC, a.id DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 同分类兜底：当前文章没有共享标签的文章时，按分类 + 热度推荐 -->
+    <select id="selectRelatedByCategory" resultMap="ArticleMap">
+        SELECT a.id, a.title, a.summary, a.content, a.author,
+               a.category_id, a.category, a.tags, a.views, a.created_at, a.updated_at
+        FROM article a
+        WHERE a.category_id = #{categoryId}
+          AND a.id != #{id}
+        ORDER BY a.views DESC, a.id DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

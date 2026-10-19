@@ -1,0 +1,12 @@
+# 依赖与构建产物（每次开机会被删除，可自动重建）
+ja3-main/aurora-vue-2/node_modules/
+ja3-main/aurora-vue-2/dist/
+ja3-main/springBootTest/target/
+ja3-main/springBootTest/log/
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+

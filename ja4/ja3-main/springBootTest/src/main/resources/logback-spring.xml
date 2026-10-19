@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logback 配置：控制台 + 滚动文件日志。
+
+  背景：原来只配了 logging.file.name=log/xx.log，走 Spring Boot 默认的单文件
+  appender，不轮转、不清理，日志会无限增长（log 目录里已经能看到手工归档的
+  .gz 了）。这里显式定义带滚动的 FILE appender。
+
+  路径约定：
+    - 日志目录 / 文件名来自 application.properties 的 logging.file.name，
+      Spring Boot 会把它注入成系统属性 LOG_FILE
+    - 默认 log/springboot-test.log，可用环境变量 LOG_PATH 覆盖整个路径
+
+  策略：单文件 10MB 触发滚动，按天 + 序号归档并 gz 压缩，保留 14 天，
+        总容量 200MB 封顶（超出后删最旧的）。
+-->
+<configuration>
+
+    <property name="LOG_DIR" value="${LOG_PATH:-log}"/>
+    <property name="LOG_FILE_PATH" value="${LOG_FILE:-${LOG_DIR}/springboot-test.log}"/>
+
+    <!--
+      控制台 appender 自己定义，不 include Spring Boot 的 console.xml：
+      那个文件位于 spring-boot 包的 jar 里，某些启动方式（spring-boot:run
+      的 classpath 顺序）下 include 会解析不到，导致控制台整段日志丢失。
+    -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%15thread] %-40.40logger{39} : %m%n}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE_PATH}</file>
+        <append>true</append>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/springboot-test.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>14</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%15thread] %-40.40logger{39} : %m%n}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>

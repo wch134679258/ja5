@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  FavoriteMapper 的 SQL 实现 —— 收藏列表。
+  结果映射复用 ArticleMapper.ArticleMap（全限定名跨 namespace 引用）。
+-->
+<mapper namespace="com.fenglin.springboottest.mapper.FavoriteMapper">
+
+    <select id="selectFavoriteArticles"
+            resultMap="com.fenglin.springboottest.mapper.ArticleMapper.ArticleMap">
+        SELECT a.id, a.title, a.summary, a.content, a.author,
+               a.category_id, a.category, a.tags, a.views, a.created_at, a.updated_at
+        FROM favorite f
+        JOIN article a ON a.id = f.article_id
+        WHERE f.user_id = #{userId}
+        ORDER BY f.created_at DESC, f.id DESC
+    </select>
+
+</mapper>

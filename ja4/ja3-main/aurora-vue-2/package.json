@@ -1,0 +1,19 @@
+{
+  "name": "aurora-vue",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Aurora · 星海入口 — Vue 3 conversion of the original login page",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.11"
+  }
+}

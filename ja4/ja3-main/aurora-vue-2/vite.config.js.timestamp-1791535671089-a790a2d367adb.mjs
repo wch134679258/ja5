@@ -1,0 +1,23 @@
+// vite.config.js
+import { defineConfig } from "file:///C:/Users/Administrator/Desktop/ja3-main/ja3-main/aurora-vue-2/node_modules/vite/dist/node/index.js";
+import vue from "file:///C:/Users/Administrator/Desktop/ja3-main/ja3-main/aurora-vue-2/node_modules/@vitejs/plugin-vue/dist/index.mjs";
+var vite_config_default = defineConfig({
+  plugins: [vue()],
+  base: "./",
+  server: {
+    host: true,
+    port: 5173,
+    // 双保险：若 .env 丢失（VITE_API_BASE 不存在），前端回退到 '/api'
+    // 相对路径，由下面的代理转发到 8081 后端，不依赖 CORS
+    proxy: {
+      "/api": {
+        target: "http://localhost:8081",
+        changeOrigin: true
+      }
+    }
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcuanMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCJDOlxcXFxVc2Vyc1xcXFxBZG1pbmlzdHJhdG9yXFxcXERlc2t0b3BcXFxcamEzLW1haW5cXFxcamEzLW1haW5cXFxcYXVyb3JhLXZ1ZS0yXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ZpbGVuYW1lID0gXCJDOlxcXFxVc2Vyc1xcXFxBZG1pbmlzdHJhdG9yXFxcXERlc2t0b3BcXFxcamEzLW1haW5cXFxcamEzLW1haW5cXFxcYXVyb3JhLXZ1ZS0yXFxcXHZpdGUuY29uZmlnLmpzXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ltcG9ydF9tZXRhX3VybCA9IFwiZmlsZTovLy9DOi9Vc2Vycy9BZG1pbmlzdHJhdG9yL0Rlc2t0b3AvamEzLW1haW4vamEzLW1haW4vYXVyb3JhLXZ1ZS0yL3ZpdGUuY29uZmlnLmpzXCI7aW1wb3J0IHsgZGVmaW5lQ29uZmlnIH0gZnJvbSAndml0ZSdcbmltcG9ydCB2dWUgZnJvbSAnQHZpdGVqcy9wbHVnaW4tdnVlJ1xuXG4vLyBcdTRGN0ZcdTc1MjhcdTc2RjhcdTVCRjlcdThERUZcdTVGODQgYmFzZVx1RkYwQ1x1NjVCOVx1NEZCRlx1NzZGNFx1NjNBNVx1NEVFNSBmaWxlOi8vIFx1NjIxNlx1NEVGQlx1NjEwRlx1NUI1MFx1OERFRlx1NUY4NFx1OTBFOFx1N0Y3MlxuZXhwb3J0IGRlZmF1bHQgZGVmaW5lQ29uZmlnKHtcbiAgcGx1Z2luczogW3Z1ZSgpXSxcbiAgYmFzZTogJy4vJyxcbiAgc2VydmVyOiB7XG4gICAgaG9zdDogdHJ1ZSxcbiAgICBwb3J0OiA1MTczLFxuICAgIC8vIFx1NTNDQ1x1NEZERFx1OTY2OVx1RkYxQVx1ODJFNSAuZW52IFx1NEUyMlx1NTkzMVx1RkYwOFZJVEVfQVBJX0JBU0UgXHU0RTBEXHU1QjU4XHU1NzI4XHVGRjA5XHVGRjBDXHU1MjREXHU3QUVGXHU1NkRFXHU5MDAwXHU1MjMwICcvYXBpJ1xuICAgIC8vIFx1NzZGOFx1NUJGOVx1OERFRlx1NUY4NFx1RkYwQ1x1NzUzMVx1NEUwQlx1OTc2Mlx1NzY4NFx1NEVFM1x1NzQwNlx1OEY2Q1x1NTNEMVx1NTIzMCA4MDgxIFx1NTQwRVx1N0FFRlx1RkYwQ1x1NEUwRFx1NEY5RFx1OEQ1NiBDT1JTXG4gICAgcHJveHk6IHtcbiAgICAgICcvYXBpJzoge1xuICAgICAgICB0YXJnZXQ6ICdodHRwOi8vbG9jYWxob3N0OjgwODEnLFxuICAgICAgICBjaGFuZ2VPcmlnaW46IHRydWVcbiAgICAgIH1cbiAgICB9XG4gIH1cbn0pXG4iXSwKICAibWFwcGluZ3MiOiAiO0FBQXVYLFNBQVMsb0JBQW9CO0FBQ3BaLE9BQU8sU0FBUztBQUdoQixJQUFPLHNCQUFRLGFBQWE7QUFBQSxFQUMxQixTQUFTLENBQUMsSUFBSSxDQUFDO0FBQUEsRUFDZixNQUFNO0FBQUEsRUFDTixRQUFRO0FBQUEsSUFDTixNQUFNO0FBQUEsSUFDTixNQUFNO0FBQUE7QUFBQTtBQUFBLElBR04sT0FBTztBQUFBLE1BQ0wsUUFBUTtBQUFBLFFBQ04sUUFBUTtBQUFBLFFBQ1IsY0FBYztBQUFBLE1BQ2hCO0FBQUEsSUFDRjtBQUFBLEVBQ0Y7QUFDRixDQUFDOyIsCiAgIm5hbWVzIjogW10KfQo=
