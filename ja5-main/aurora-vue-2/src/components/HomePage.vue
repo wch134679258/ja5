@@ -228,6 +228,7 @@ import SiteNav from './SiteNav.vue'
 import ArticleCard from './ArticleCard.vue'
 import { searchArticles, fetchCategories, fetchHotTags } from '../api/search'
 import { fetchFavoriteIds, addFavorite, removeFavorite } from '../api/favorites'
+import { toast } from '../composables/useToast'
 
 const props = defineProps({
   user: { type: Object, default: null },
@@ -462,13 +463,14 @@ async function toggleFavorite (article) {
   try {
     if (on) await removeFavorite(article.id)
     else await addFavorite(article.id)
+    toast.success(on ? '已取消收藏' : '已收藏')
   } catch (e) {
     // 失败回滚
     const rollback = new Set(favIds.value)
     if (on) rollback.add(article.id)
     else rollback.delete(article.id)
     favIds.value = rollback
-    error.value = (e && e.message) || '操作失败，请稍后再试'
+    toast.error((e && e.message) || '操作失败，请稍后再试')
   }
 }
 

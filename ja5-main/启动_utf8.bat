@@ -1,51 +1,52 @@
 @echo off
 chcp 936 >nul
-title Aurora é¡¹ç›®ä¸€é”®å¯åŠ¨
+setlocal enabledelayedexpansion
+title Aurora ÏîÄ¿Ò»¼üÆô¶¯
 cd /d "%~dp0"
 
 echo ================================================
-echo   Aurora ç™»å½•é¡¹ç›® ä¸€é”®å¯åŠ¨è„šæœ¬
-echo   å‰ç«¯: aurora-vue-2 (ç«¯å£ 5173)
-echo   åŽç«¯: springBootTest (ç«¯å£ 8081, éœ€ MySQL)
-echo   è¯´æ˜Ž: node_modules/target ä¼šè¢«ç³»ç»Ÿåˆ é™¤,
-echo         æœ¬è„šæœ¬ä¼šè‡ªåŠ¨é‡è£…ä¾èµ–, æ— éœ€æ‰‹åŠ¨å¤„ç†
+echo   Aurora µÇÂ¼ÏîÄ¿ Ò»¼üÆô¶¯½Å±¾
+echo   Ç°¶Ë: aurora-vue-2 (¶Ë¿Ú 5173)
+echo   ºó¶Ë: springBootTest (¶Ë¿Ú 8081, Ðè MySQL)
+echo   ËµÃ÷: node_modules/target »á±»ÏµÍ³É¾³ý,
+echo         ±¾½Å±¾»á×Ô¶¯ÖØ×°ÒÀÀµ, ÎÞÐèÊÖ¶¯´¦Àí
 echo ================================================
 echo.
 
-rem ---------- 0. æ¸…ç†ä¸Šæ¬¡æ®‹ç•™(ç«¯å£è¢«å æ—¶å…ˆæ€æŽ‰) ----------
+rem ---------- 0. ÇåÀíÉÏ´Î²ÐÁô(¶Ë¿Ú±»Õ¼Ê±ÏÈÉ±µô) ----------
 call :killport 5173
 call :killport 8081
 
-rem ---------- 1. å®‰è£…å‰ç«¯ä¾èµ–(node_modules è¢«åˆ åˆ™é‡è£…) ----------
+rem ---------- 1. °²×°Ç°¶ËÒÀÀµ(node_modules ±»É¾ÔòÖØ×°) ----------
 if not exist "aurora-vue-2\node_modules" (
-    echo [1/4] å‰ç«¯ä¾èµ–ä¸å­˜åœ¨, æ­£åœ¨å®‰è£…(ä¼˜å…ˆèµ°æœ¬åœ°ç¼“å­˜, çº¦ 30-90 ç§’)...
+    echo [1/4] Ç°¶ËÒÀÀµ²»´æÔÚ, ÕýÔÚ°²×°(ÓÅÏÈ×ß±¾µØ»º´æ, Ô¼ 30-90 Ãë)...
     cd /d "%~dp0aurora-vue-2"
     call npm install --prefer-offline --no-audit --no-fund
     cd /d "%~dp0"
 ) else (
-    echo [1/4] å‰ç«¯ä¾èµ–å·²å­˜åœ¨, è·³è¿‡å®‰è£…
+    echo [1/4] Ç°¶ËÒÀÀµÒÑ´æÔÚ, Ìø¹ý°²×°
 )
 echo.
 
-rem ---------- 2. åˆå§‹åŒ–æ•°æ®åº“(å¹‚ç­‰, å·²å­˜åœ¨åˆ™è·³è¿‡å»ºè¡¨) ----------
-echo [2/4] æ£€æŸ¥æ•°æ®åº“ springboot_test ...
+rem ---------- 2. ³õÊ¼»¯Êý¾Ý¿â(ÃÝµÈ, ÒÑ´æÔÚÔòÌø¹ý½¨±í) ----------
+echo [2/4] ¼ì²éÊý¾Ý¿â springboot_test ...
 set "MYSQL_BIN="
 where mysql >nul 2>nul && set "MYSQL_BIN=mysql"
 if not defined MYSQL_BIN if exist "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" set "MYSQL_BIN=C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
 if defined MYSQL_BIN (
     "%MYSQL_BIN%" -uroot -p123456 --default-character-set=utf8mb4 < "springBootTest\init-db.sql" >nul 2>nul
-    if !errorlevel! equ 0 (echo       æ•°æ®åº“å·²å°±ç»ª) else (echo       [è­¦å‘Š] æ•°æ®åº“åˆå§‹åŒ–å¤±è´¥, è‹¥ MySQL æœªå¯åŠ¨è¯·å…ˆå¯åŠ¨ MySQL æœåŠ¡)
+    if !errorlevel! equ 0 (echo       Êý¾Ý¿âÒÑ¾ÍÐ÷) else (echo       [¾¯¸æ] Êý¾Ý¿â³õÊ¼»¯Ê§°Ü, Èô MySQL Î´Æô¶¯ÇëÏÈÆô¶¯ MySQL ·þÎñ)
 ) else (
-    echo       [è­¦å‘Š] æœªæ‰¾åˆ° mysql å®¢æˆ·ç«¯, è·³è¿‡åˆå§‹åŒ–(æ•°æ®åº“è‹¥å·²å»ºè¿‡åˆ™ä¸å½±å“)
+    echo       [¾¯¸æ] Î´ÕÒµ½ mysql ¿Í»§¶Ë, Ìø¹ý³õÊ¼»¯(Êý¾Ý¿âÈôÒÑ½¨¹ýÔò²»Ó°Ïì)
 )
 echo.
 
-rem ---------- 3. å¯åŠ¨åŽç«¯(æ–°çª—å£æ˜¾ç¤ºæ—¥å¿—, è‡ªåŠ¨é‡æ–°ç¼–è¯‘) ----------
-echo [3/4] å¯åŠ¨åŽç«¯ springBootTest ...
-start "åŽç«¯-8081(å…³é—­çª—å£å³åœæ­¢)" cmd /k "cd /d "%~dp0springBootTest" && mvnw.cmd spring-boot:run"
+rem ---------- 3. Æô¶¯ºó¶Ë(ÐÂ´°¿ÚÏÔÊ¾ÈÕÖ¾, ×Ô¶¯ÖØÐÂ±àÒë) ----------
+echo [3/4] Æô¶¯ºó¶Ë springBootTest ...
+start "ºó¶Ë-8081(¹Ø±Õ´°¿Ú¼´Í£Ö¹)" cmd /k "cd /d "%~dp0springBootTest" && mvnw.cmd spring-boot:run"
 
-rem ---------- 4. ç­‰å¾… 8081 å°±ç»ª(é¦–æ¬¡éœ€ä¸‹è½½ Maven ä¾èµ–, å¯èƒ½ 2-5 åˆ†é’Ÿ) ----------
-echo       ç­‰å¾…åŽç«¯å°±ç»ª(æœ€å¤š 300 ç§’)...
+rem ---------- 4. µÈ´ý 8081 ¾ÍÐ÷(Ê×´ÎÐèÏÂÔØ Maven ÒÀÀµ, ¿ÉÄÜ 2-5 ·ÖÖÓ) ----------
+echo       µÈ´ýºó¶Ë¾ÍÐ÷(×î¶à 300 Ãë)...
 set /a waited=0
 :waitbackend
 timeout /t 3 /nobreak >nul
@@ -53,19 +54,19 @@ set /a waited+=3
 netstat -ano | findstr ":8081" | findstr "LISTENING" >nul
 if %errorlevel% equ 0 goto backendok
 if %waited% geq 300 (
-    echo       [è¶…æ—¶] åŽç«¯ 300 ç§’å†…æœªå°±ç»ª, è¯·æŸ¥çœ‹"åŽç«¯-8081"çª—å£çš„æŠ¥é”™ä¿¡æ¯
+    echo       [³¬Ê±] ºó¶Ë 300 ÃëÄÚÎ´¾ÍÐ÷, Çë²é¿´"ºó¶Ë-8081"´°¿ÚµÄ±¨´íÐÅÏ¢
     goto startfront
 )
 goto waitbackend
 :backendok
-echo       åŽç«¯å·²å°±ç»ª: http://localhost:8081
+echo       ºó¶ËÒÑ¾ÍÐ÷: http://localhost:8081
 
 :startfront
-rem ---------- 5. å¯åŠ¨å‰ç«¯å¹¶æ‰“å¼€æµè§ˆå™¨ ----------
-echo [4/4] å¯åŠ¨å‰ç«¯ aurora-vue-2 ...
-start "å‰ç«¯-5173(å…³é—­çª—å£å³åœæ­¢)" cmd /k "cd /d "%~dp0aurora-vue-2" && npm run dev"
+rem ---------- 5. Æô¶¯Ç°¶Ë²¢´ò¿ªä¯ÀÀÆ÷ ----------
+echo [4/4] Æô¶¯Ç°¶Ë aurora-vue-2 ...
+start "Ç°¶Ë-5173(¹Ø±Õ´°¿Ú¼´Í£Ö¹)" cmd /k "cd /d "%~dp0aurora-vue-2" && npm run dev"
 
-echo       ç­‰å¾…å‰ç«¯å°±ç»ª...
+echo       µÈ´ýÇ°¶Ë¾ÍÐ÷...
 set /a waited=0
 :waitfront
 timeout /t 2 /nobreak >nul
@@ -75,22 +76,22 @@ if %errorlevel% equ 0 goto frontok
 if %waited% geq 60 goto done
 goto waitfront
 :frontok
-echo       å‰ç«¯å·²å°±ç»ª: http://localhost:5173
+echo       Ç°¶ËÒÑ¾ÍÐ÷: http://localhost:5173
 start http://localhost:5173
 
 :done
 echo.
 echo ================================================
-echo   å¯åŠ¨æµç¨‹å®Œæˆ! æµè§ˆå™¨å°†è‡ªåŠ¨æ‰“å¼€ç™»å½•é¡µ
-echo   åœæ­¢é¡¹ç›®è¯·è¿è¡Œ: åœæ­¢.bat
+echo   Æô¶¯Á÷³ÌÍê³É! ä¯ÀÀÆ÷½«×Ô¶¯´ò¿ªµÇÂ¼Ò³
+echo   Í£Ö¹ÏîÄ¿ÇëÔËÐÐ: Í£Ö¹.bat
 echo ================================================
 pause
 exit /b 0
 
-rem ============ å­è¿‡ç¨‹: æ€æŽ‰å ç”¨æŒ‡å®šç«¯å£çš„è¿›ç¨‹ ============
+rem ============ ×Ó¹ý³Ì: É±µôÕ¼ÓÃÖ¸¶¨¶Ë¿ÚµÄ½ø³Ì ============
 :killport
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%~1" ^| findstr "LISTENING"') do (
-    echo       æ¸…ç†ç«¯å£ %~1 ä¸Šçš„æ®‹ç•™è¿›ç¨‹ PID=%%p
+    echo       ÇåÀí¶Ë¿Ú %~1 ÉÏµÄ²ÐÁô½ø³Ì PID=%%p
     taskkill /F /T /PID %%p >nul 2>nul
 )
 exit /b 0

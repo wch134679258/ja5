@@ -29,6 +29,23 @@
           </svg>
           <span>{{ favText }}</span>
         </button>
+
+        <!-- 点赞按钮：未登录点击 -> 引导登录 -->
+        <button
+          v-if="article"
+          class="fav fav--like"
+          :class="{ 'fav--on': article.liked, 'fav--pending': likePending }"
+          type="button"
+          :disabled="likePending"
+          @click="toggleLike"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3z" />
+            <path d="M7 10l4.2-7.4a1.6 1.6 0 0 1 2.9 1.3L13 9h4.6a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 16.2 20H7" />
+          </svg>
+          <span>{{ likeText }}</span>
+        </button>
       </div>
 
       <!-- 加载骨架 -->
@@ -69,6 +86,10 @@
               <span>{{ article.createdAt }}</span>
               <span class="paper__dot"></span>
               <span>{{ article.views }} 次浏览</span>
+              <span class="paper__dot"></span>
+              <span>{{ article.likes || 0 }} 次点赞</span>
+              <span class="paper__dot"></span>
+              <span>约 {{ readingMinutes }} 分钟读完</span>
             </div>
           </header>
 
@@ -126,6 +147,9 @@ import { ref, computed, watch, onMounted } from 'vue'
 import SiteNav from './SiteNav.vue'
 import { fetchArticle, fetchRelated } from '../api/article'
 import { addFavorite, removeFavorite } from '../api/favorites'
+import { addLike, removeLike } from '../api/likes'
+import { recordHistory } from '../api/history'
+import { toast } from '../composables/useToast'
 
 const props = defineProps({
   articleId: { type: [String, Number], required: true },
@@ -138,6 +162,13 @@ const related = ref([])
 const loading = ref(false)
 const error = ref('')
 const favPending = ref(false)
+const likePending = ref(false)
+
+/** 预计阅读时长：中文按 400 字/分钟估算，至少 1 分钟 */
+const readingMinutes = computed(() => {
+  const text = (article.value && article.value.content) || ''
+  return Math.max(1, Math.round(text.replace(/\s/g, '').length / 400))
+})
 
 /** 正文按空行拆段，空行合并 */
 const paragraphs = computed(() => {
@@ -152,6 +183,13 @@ const paragraphs = computed(() => {
 const favText = computed(() => {
   if (favPending.value) return '处理中…'
   return article.value && article.value.favorited ? '已收藏' : '收藏'
+})
+
+const likeText = computed(() => {
+  if (likePending.value) return '处理中…'
+  if (!article.value) return '点赞'
+  const n = article.value.likes || 0
+  return (article.value.liked ? '已点赞' : '点赞') + (n > 0 ? ` ${n}` : '')
 })
 
 async function load () {
@@ -192,10 +230,43 @@ async function toggleFavorite () {
   }
 }
 
+/** 点赞 / 取消点赞（未登录由 App 引导去登录页） */
+async function toggleLike () {
+  if (!props.user || likePending.value) return
+  const id = article.value.id
+  const wasLiked = article.value.liked
+  const oldCount = article.value.likes || 0
+  likePending.value = true
+  // 乐观更新：状态与计数一起翻转，失败回滚
+  article.value.liked = !wasLiked
+  article.value.likes = Math.max(0, oldCount + (wasLiked ? -1 : 1))
+  try {
+    const res = await (wasLiked ? removeLike(id) : addLike(id))
+    // 以后端返回的真实点赞数为准，避免并发下计数漂移
+    if (res && typeof res.likes === 'number') article.value.likes = res.likes
+    toast.success(wasLiked ? '已取消点赞' : '已点赞')
+  } catch (e) {
+    article.value.liked = wasLiked
+    article.value.likes = oldCount
+    toast.error((e && e.message) || '操作失败，请稍后再试')
+  } finally {
+    likePending.value = false
+  }
+}
+
 // 切换文章（从相关文章点进来）时重新加载
 watch(() => props.articleId, (id) => { if (id) load() })
 
 onMounted(load)
+
+/**
+ * 登录用户浏览过文章后上报一次浏览历史。
+ * 这是「顺手做」的弱操作：失败只静默忽略，不影响阅读。
+ */
+watch(() => [props.user && props.user.id, props.articleId], ([uid, id]) => {
+  if (!uid || !id) return
+  recordHistory(id).catch(() => { /* 浏览记录失败不影响阅读 */ })
+})
 </script>
 
 <style scoped>

@@ -86,6 +86,8 @@
           </button>
         </div>
       </template>
+
+      <SiteFooter @go="$emit('navigate', $event)" />
     </main>
   </div>
 </template>
@@ -93,8 +95,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import SiteNav from './SiteNav.vue'
+import SiteFooter from './SiteFooter.vue'
 import ArticleCard from './ArticleCard.vue'
 import { fetchFavorites, removeFavorite } from '../api/favorites'
+import { toast } from '../composables/useToast'
 
 const props = defineProps({
   user: { type: Object, default: null }
@@ -139,8 +143,9 @@ function go (p) {
 async function unfavorite (article) {
   try {
     await removeFavorite(article.id)
+    toast.success('已取消收藏')
   } catch (e) {
-    error.value = (e && e.message) || '取消收藏失败，请稍后再试'
+    toast.error((e && e.message) || '取消收藏失败，请稍后再试')
     return
   }
   const target = list.value.length === 1 && page.value > 1 ? page.value - 1 : page.value

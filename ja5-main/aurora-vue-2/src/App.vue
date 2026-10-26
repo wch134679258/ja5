@@ -3,6 +3,9 @@
   <div class="grain"></div>
   <div class="vignette"></div>
 
+  <!-- 全局轻提示：任何组件调用 toast.xxx() 都会在这里显示 -->
+  <ToastHost />
+
   <!-- 登录 / 注册页 -->
   <main v-if="view === 'auth'" class="stage">
     <section class="card" ref="card" @pointermove="onMove" @pointerleave="onLeave">
@@ -82,11 +85,27 @@
     @open-home="goHome"
     @logout="doLogout"
   />
+
+  <ProfilePage
+    v-else-if="view === 'profile'"
+    :user="user"
+    @navigate="onNavigate"
+    @open-article="openArticle"
+    @logout="doLogout"
+  />
+
+  <!-- 全站页脚（登录页与全屏游戏页不显示） -->
+  <div v-if="showFooter" class="footwrap">
+    <SiteFooter @go="onNavigate" />
+  </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import AuroraBackground from './components/AuroraBackground.vue'
+import ToastHost from './components/ToastHost.vue'
+import SiteFooter from './components/SiteFooter.vue'
+import ProfilePage from './components/ProfilePage.vue'
 import BrandPanel from './components/BrandPanel.vue'
 import AuthPanel from './components/AuthPanel.vue'
 import SuccessOverlay from './components/SuccessOverlay.vue'
@@ -113,12 +132,16 @@ const doneSub = ref('')
  *   article    文章详情
  *   favorites  我的收藏
  *   discover   发现
+ *   profile    个人中心（资料 / 统计 / 浏览历史 / 游戏成绩）
  *   about      关于
  *   game       星空贪吃蛇小游戏
  */
 const view = ref('auth')
 const user = ref(null)
 const articleId = ref(null)
+
+/** 登录页与全屏游戏页不显示页脚 */
+const showFooter = computed(() => view.value !== 'auth' && view.value !== 'game')
 
 /** 从其它页面跳回首页时携带的筛选条件（每次传新对象以触发 HomePage 更新） */
 const homeFilter = ref(null)
@@ -210,5 +233,14 @@ onMounted(async () => {
 :global(body.view-home) .grain,
 :global(body.view-home) .vignette {
   position: fixed;
+}
+
+/* 页脚容器：与各页面内容同宽，居中排布 */
+.footwrap {
+  position: relative;
+  z-index: 2;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 0 24px 34px;
 }
 </style>

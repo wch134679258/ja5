@@ -89,6 +89,21 @@
         </div>
       </section>
 
+      <section class="card">
+        <h2 class="card__title">功能一览</h2>
+        <ul class="flist">
+          <li v-for="f in features" :key="f.name">
+            <b>{{ f.name }}</b>
+            <span>{{ f.desc }}</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">项目结构</h2>
+        <pre class="tree">{{ tree }}</pre>
+      </section>
+
       <section class="card card--tip">
         <h2 class="card__title">测试账号</h2>
         <p class="card__text">
@@ -113,9 +128,33 @@ defineProps({
 defineEmits(['navigate', 'logout'])
 
 const stack = [
-  'Vue 3', 'Vite', 'Vue Router（视图状态机）', 'Spring Boot 3', 'MyBatis-Plus',
-  'MySQL 8', 'JWT', 'BCrypt', 'REST API'
+  'Vue 3', 'Vite', '视图状态机（未引入 vue-router）', 'Spring Boot 3', 'MyBatis-Plus',
+  'MySQL 8', 'JWT', 'BCrypt', 'REST API', 'Canvas 小游戏'
 ]
+
+/** 站点功能一览（后端接口 + 前端页面对应关系） */
+const features = [
+  { name: '搜索与筛选', desc: '关键词命中标题 / 摘要 / 正文 / 作者 / 标签，支持一级分类 + 二级标签交叉筛选、热度与最新排序、分页' },
+  { name: '搜索辅助', desc: '输入即出的搜索建议（标题 + 标签）、本地搜索历史、键盘上下选择与高亮' },
+  { name: '文章阅读', desc: '详情页按空行分段渲染，展示浏览量、点赞数、预计阅读时长，底部推荐相关文章' },
+  { name: '收藏', desc: '卡片与详情页均可收藏 / 取消收藏，收藏页支持分页与直接取消' },
+  { name: '点赞', desc: '文章点赞与取消，详情页显示实时点赞数，列表页可标记点赞态' },
+  { name: '浏览历史', desc: '登录后自动记录阅读足迹，个人中心可分页查看、单条删除或一键清空' },
+  { name: '个人中心', desc: '汇总昵称、加入时间、收藏 / 浏览 / 点赞统计与游戏成绩' },
+  { name: '星空贪吃蛇', desc: 'Canvas 实现的小游戏，成绩联网提交并参与全站排行榜' }
+]
+
+const tree = `ja5-main/
+├─ aurora-vue-2/          前端 Vue 3 + Vite（端口 5173）
+│  ├─ src/api/            http 统一请求层 + auth/search/article/favorites/likes/history/profile
+│  ├─ src/components/     页面与组件（首页 / 详情 / 发现 / 收藏 / 个人中心 / 关于 / 游戏）
+│  ├─ src/composables/    useTilt、useAuthForm、useToast
+│  └─ vite.config.js      /api 代理到 8081
+└─ springBootTest/        后端 Spring Boot 3（端口 8081）
+   ├─ controller/service/mapper/entity/dto   分层结构
+   ├─ config/             JwtUtil、AuthSupport、CorsConfig
+   ├─ resources/mapper/   复杂查询 SQL
+   └─ *.sql               建库与幂等迁移脚本`
 </script>
 
 <style scoped>
@@ -217,6 +256,55 @@ const stack = [
   border: 1px solid rgba(34, 211, 238, 0.3);
   border-radius: 7px;
   padding: 1px 8px;
+}
+
+/* 功能一览 */
+.flist {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+.flist li {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.flist b {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.flist span {
+  font-size: 13px;
+  line-height: 1.75;
+  color: rgba(238, 242, 255, 0.7);
+  font-weight: 300;
+}
+
+/* 项目结构树 */
+.tree {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(6, 8, 20, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: rgba(238, 242, 255, 0.75);
+  overflow-x: auto;
+}
+
+@media (max-width: 640px) {
+  .flist li {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 
 /* 技术栈 chips */

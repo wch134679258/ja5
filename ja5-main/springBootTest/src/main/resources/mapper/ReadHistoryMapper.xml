@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  ReadHistoryMapper 的 SQL 实现 —— 浏览历史列表。
+  a.created_at 是文章发布时间，h.created_at 是本次浏览时间，
+  分别映射到 HistoryItem.createdAt / viewedAt。
+-->
+<mapper namespace="com.fenglin.springboottest.mapper.ReadHistoryMapper">
+
+    <resultMap id="HistoryItemMap" type="com.fenglin.springboottest.dto.HistoryItem">
+        <id property="id" column="a_id"/>
+        <result property="title" column="a_title"/>
+        <result property="summary" column="a_summary"/>
+        <result property="author" column="a_author"/>
+        <result property="category" column="a_category"/>
+        <result property="tagsRaw" column="a_tags"/>
+        <result property="views" column="a_views"/>
+        <result property="createdAt" column="a_created_at"/>
+        <result property="viewedAt" column="h_created_at"/>
+    </resultMap>
+
+    <select id="selectHistoryArticles" resultMap="HistoryItemMap">
+        SELECT a.id AS a_id, a.title AS a_title, a.summary AS a_summary, a.author AS a_author,
+               a.category AS a_category, a.tags AS a_tags, a.views AS a_views,
+               a.created_at AS a_created_at, h.created_at AS h_created_at
+        FROM read_history h
+        JOIN article a ON a.id = h.article_id
+        WHERE h.user_id = #{userId}
+        ORDER BY h.created_at DESC, h.id DESC
+    </select>
+
+</mapper>

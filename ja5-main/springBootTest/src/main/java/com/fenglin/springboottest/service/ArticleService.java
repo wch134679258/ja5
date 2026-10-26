@@ -24,10 +24,12 @@ public class ArticleService {
 
     private final ArticleMapper articleMapper;
     private final FavoriteMapper favoriteMapper;
+    private final LikeService likeService;
 
-    public ArticleService(ArticleMapper articleMapper, FavoriteMapper favoriteMapper) {
+    public ArticleService(ArticleMapper articleMapper, FavoriteMapper favoriteMapper, LikeService likeService) {
         this.articleMapper = articleMapper;
         this.favoriteMapper = favoriteMapper;
+        this.likeService = likeService;
     }
 
     /**
@@ -67,6 +69,9 @@ public class ArticleService {
         resp.put("createdAt", a.getCreatedAt() == null ? "" : a.getCreatedAt().format(ArticleItem.FMT));
         resp.put("updatedAt", a.getUpdatedAt() == null ? "" : a.getUpdatedAt().format(ArticleItem.FMT));
         resp.put("favorited", favorited);
+        // 点赞态（登录用户）与点赞总数（公开）
+        resp.put("liked", viewerId != null && likeService.isLiked(viewerId, id));
+        resp.put("likes", likeService.countOfArticle(id));
         return resp;
     }
 

@@ -22,9 +22,15 @@
         </button>
       </nav>
 
-      <!-- 用户区 -->
+      <!-- 用户区（头像可点，直达个人中心） -->
       <div class="nav__user">
-        <div class="nav__avatar" :title="userName">{{ avatarText }}</div>
+        <button
+          class="nav__avatar"
+          type="button"
+          :title="userName + ' · 个人中心'"
+          aria-label="进入个人中心"
+          @click="$emit('go', 'profile')"
+        >{{ avatarText }}</button>
         <div class="nav__meta">
           <b>{{ userName }}</b>
           <span>{{ userSub }}</span>
@@ -58,6 +64,7 @@ const menus = [
   { key: 'discover', label: '发现' },
   { key: 'game', label: '游戏' },
   { key: 'favorites', label: '收藏' },
+  { key: 'profile', label: '我的' },
   { key: 'about', label: '关于' }
 ]
 
@@ -187,11 +194,19 @@ const avatarText = computed(() => {
   display: grid;
   place-items: center;
   border-radius: 12px;
+  border: 1px solid transparent;
+  font: inherit;
   font-size: 15px;
   font-weight: 600;
   color: #fff;
+  cursor: pointer;
   background: linear-gradient(135deg, var(--a1), var(--a2));
   box-shadow: 0 8px 20px -10px var(--a1);
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.nav__avatar:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 12px 24px -10px var(--a1);
 }
 .nav__meta {
   display: flex;

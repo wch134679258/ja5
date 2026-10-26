@@ -98,6 +98,12 @@ public class FavoriteService {
         return resp;
     }
 
+    /** 某用户的收藏总数（个人中心统计用） */
+    public long count(Long userId) {
+        return favoriteMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Favorite>()
+                .eq(Favorite::getUserId, userId));
+    }
+
     /**
      * 当前用户已收藏的文章 id 列表。供首页 / 发现页在文章卡片上标记收藏态，
      * 只查一列，比拉全量收藏列表轻量。
