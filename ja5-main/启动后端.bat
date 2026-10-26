@@ -1,7 +1,7 @@
 @echo off
 chcp 936 >nul
 title 后端 springBootTest 端口 8081
-cd /d "%~dp0ja5-main\springBootTest"
+cd /d "%~dp0springBootTest"
 
 rem ---------- 清空干扰变量 - 避免代理失效卡死和端口被环境变量覆盖 ----------
 set "HTTP_PROXY="

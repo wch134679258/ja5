@@ -1,7 +1,7 @@
 @echo off
 chcp 936 >nul
 title 前端 aurora-vue-2 端口 5173
-cd /d "%~dp0ja5-main\aurora-vue-2"
+cd /d "%~dp0aurora-vue-2"
 
 rem ---------- 清空代理变量 - 避免继承失效代理导致 npm 卡死 ----------
 set "HTTP_PROXY="
