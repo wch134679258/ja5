@@ -367,3 +367,33 @@ java -cp "C:/Users/Administrator/.m2/repository/org/springframework/security/spr
 - `mvnw -B compile` BUILD SUCCESS；`spring-boot:run` 正常起在 8081
 - 接口冒烟：captcha ✓ / login（verify用户 + abc12345，返回 token）✓ / 搜索「凡人」5 条 ✓
 - profile `{user,stats,game}` ✓ / history ✓ / likes/ids ✓ / game/leaderboard ✓
+
+### 12.6 启动脚本路径 bug（已修，双击仍起不来的元凶）
+
+`启动前端.bat` / `启动后端.bat` 是项目还在**仓库根目录**时写的，里面是：
+
+```
+cd /d "%~dp0ja5-main\aurora-vue-2"     ← 错
+cd /d "%~dp0ja5-main\springBootTest"   ← 错
+```
+
+但这两个 bat 现在位于 `ja5-main\` 内，`%~dp0` 已经是 `...\ja5-main\`，再拼一层就变成
+不存在的 `ja5-main\ja5-main\aurora-vue-2` → 脚本一运行立即失败。
+
+**正确写法**（`%~dp0` 直接拼子目录）：
+
+```
+cd /d "%~dp0aurora-vue-2"
+cd /d "%~dp0springBootTest"
+```
+
+> 修改 GBK 中文 .bat 后**必须重建 CRLF**：用 `iconv` 转码或 `sed` 处理会吃掉 CR，
+> cmd 解析会崩坏（表现是脚本一闪而过、中文变乱码）。改完用 `xxd` 确认行尾是 `0d 0a`。
+> 本目录所有 .bat 均为 **GBK + CRLF**，新增脚本请用
+> `iconv -f UTF-8 -t GBK xx.bat | sed 's/$/\r/' > tmp && mv tmp xx.bat` 转换。
+
+### 12.7 沙盒内起的服务不持久
+
+`npm run dev` / `spring-boot:run` 在 AI 沙盒后台跑，进程会被回收（实测后端启动成功
+2 秒、运行约 26 秒后即被终止，日志无应用级错误）。**只能用于冒烟验证**。
+要长期运行请让用户双击 `启动项目.bat`，在用户自己的会话里不会被回收。
