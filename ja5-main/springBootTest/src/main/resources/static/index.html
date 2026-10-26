@@ -1,14 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
-</head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aurora 后端服务</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 48px 24px;
+            background: #f7f8fa;
+            color: #1f2328;
+            font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+            line-height: 1.7;
+        }
+        main { max-width: 720px; margin: 0 auto; }
+        h1 { font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+        .sub { color: #6b7280; font-size: 14px; margin: 0 0 28px; }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+        }
+        .card h2 { font-size: 15px; font-weight: 500; margin: 0 0 12px; }
+        a { color: #185fa5; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: #f1efe8;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 13px;
+            font-family: ui-monospace, Consolas, monospace;
+        }
+        ul { margin: 0; padding-left: 20px; }
+        li { margin-bottom: 6px; font-size: 14px; }
+        .muted { color: #6b7280; font-size: 13px; }
+    </style>
 </head>
 <body>
-<h2>Hello World!</h2>
-<a href="/user/to_login">登录</a>
-<a href="/user/test">登录2</a>
-<img src="images/1.jpg">
+<main>
+    <h1>Aurora 后端服务已启动</h1>
+    <p class="sub">这里是 API 服务（端口 8081），不是用户页面。</p>
+
+    <div class="card">
+        <h2>用户界面</h2>
+        <p class="muted">前端开发服务器默认跑在 5173，点下面这个地址进入站点：</p>
+        <p><a href="http://localhost:5173">http://localhost:5173</a></p>
+    </div>
+
+    <div class="card">
+        <h2>接口分组</h2>
+        <ul>
+            <li><code>/api/auth/*</code> 注册、登录、图形验证码、当前用户</li>
+            <li><code>/api/search/*</code> 分级分类检索、分类树、热门标签、搜索建议</li>
+            <li><code>/api/article/*</code> 文章详情、相关文章</li>
+            <li><code>/api/favorites/*</code> 收藏增删查（需登录）</li>
+            <li><code>/api/history/*</code>、<code>/api/likes/*</code> 浏览历史与点赞（需登录）</li>
+            <li><code>/api/game/*</code> 星空贪吃蛇成绩与排行榜</li>
+            <li><code>/api/user/profile</code> 个人中心汇总（需登录）</li>
+            <li><code>/api/admin/*</code> 文章 / 分类 / 标签管理（需管理员）</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>健康检查</h2>
+        <p class="muted">返回图形验证码即表示服务与数据库均正常：</p>
+        <p><a href="/api/auth/captcha">/api/auth/captcha</a></p>
+    </div>
+</main>
 </body>
 </html>

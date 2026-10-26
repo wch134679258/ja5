@@ -72,6 +72,7 @@ async function request (path, { method = 'GET', params = null, body = null } = {
 export const http = {
   get: (path, params) => request(path, { method: 'GET', params }),
   post: (path, body) => request(path, { method: 'POST', body: body || {} }),
+  put: (path, body) => request(path, { method: 'PUT', body: body || {} }),
   del: (path) => request(path, { method: 'DELETE' })
 }
 
