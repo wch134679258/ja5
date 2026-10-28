@@ -200,11 +200,12 @@
             <!-- 结果列表（卡片可点击进入详情） -->
             <div v-else class="rlist">
               <ArticleCard
-                v-for="a in list"
+                v-for="(a, i) in list"
                 :key="a.id"
                 :article="a"
                 :favorited="favIds.has(a.id)"
                 :show-fav="!!user"
+                :featured="isFeatured(i)"
                 @open="$emit('open-article', $event)"
                 @open-category="onOpenCategory"
                 @open-tag="selectTagByName"
@@ -479,6 +480,15 @@ const currentTag = computed(() => {
 const grandTotal = computed(() => categories.value.reduce((s, c) => s + (c.articleCount || 0), 0))
 
 const hasFilter = computed(() => Boolean(query.value || categoryId.value || tagId.value))
+
+/**
+ * 是否把第 i 条渲染成「精选」大卡片。
+ * 只在默认推荐视图（无关键词、无筛选）且列表够长时启用：
+ * 搜索结果、分类筛选下每条都是同等地位的命中项，突出一条会造成误导。
+ */
+function isFeatured (i) {
+  return i === 0 && !hasFilter.value && list.value.length > 3
+}
 
 /** 结果区标题：没有关键词但有筛选条件时，用文字描述当前条件 */
 const activeFilterText = computed(() => {

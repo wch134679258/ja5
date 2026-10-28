@@ -2,38 +2,61 @@
   <!-- 文章卡片：首页 / 收藏页 / 发现页 共用。整卡可点击进入详情 -->
   <article
     class="rcard"
-    :class="{ 'rcard--fav': favorited }"
+    :class="{ 'rcard--fav': favorited, 'rcard--feat': featured }"
     tabindex="0"
     role="button"
     :aria-label="'阅读文章：' + article.title"
     @click="$emit('open', article.id)"
     @keydown.enter="$emit('open', article.id)"
   >
-    <h3 class="rcard__title">{{ article.title }}</h3>
-    <p class="rcard__summary">{{ article.summary }}</p>
-    <div class="rcard__foot">
-      <div class="rcard__info">
-        <button
-          v-if="article.category"
-          class="rcard__cat"
-          type="button"
-          @click.stop="$emit('open-category', article.categoryId, article.category)"
-        >{{ article.category }}</button>
-        <span class="rcard__dot"></span>
-        <span>{{ article.author }}</span>
-        <span class="rcard__dot"></span>
-        <span>{{ article.createdAt }}</span>
-        <span class="rcard__dot"></span>
-        <span>{{ article.views }} 次浏览</span>
-      </div>
-      <div class="rcard__tags">
-        <button
-          v-for="t in (article.tags || [])"
-          :key="t"
-          class="rtag"
-          type="button"
-          @click.stop="$emit('open-tag', t)"
-        >{{ t }}</button>
+    <!-- 精选卡片的封面：用星空图按文章 id 轮转，纯装饰不承载信息 -->
+    <div
+      v-if="featured"
+      class="rcard__cover"
+      :style="{ backgroundImage: 'url(' + cover + ')' }"
+      aria-hidden="true"
+    >
+      <span class="rcard__cover-veil"></span>
+      <span class="rcard__pick">精选</span>
+      <button
+        v-if="article.category"
+        class="rcard__cat rcard__cat--cover"
+        type="button"
+        @click.stop="$emit('open-category', article.categoryId, article.category)"
+      >{{ article.category }}</button>
+    </div>
+
+    <div class="rcard__main">
+      <h3 class="rcard__title">{{ article.title }}</h3>
+      <p class="rcard__summary">{{ article.summary }}</p>
+      <div class="rcard__foot">
+        <div class="rcard__info">
+          <button
+            v-if="article.category && !featured"
+            class="rcard__cat"
+            type="button"
+            @click.stop="$emit('open-category', article.categoryId, article.category)"
+          >{{ article.category }}</button>
+          <span v-if="article.category && !featured" class="rcard__dot"></span>
+          <span>{{ article.author }}</span>
+          <span class="rcard__dot"></span>
+          <span>{{ article.createdAt }}</span>
+          <span class="rcard__dot"></span>
+          <span>{{ article.views }} 次浏览</span>
+          <template v-if="article.minutes">
+            <span class="rcard__dot"></span>
+            <span>约 {{ article.minutes }} 分钟</span>
+          </template>
+        </div>
+        <div class="rcard__tags">
+          <button
+            v-for="t in (article.tags || [])"
+            :key="t"
+            class="rtag"
+            type="button"
+            @click.stop="$emit('open-tag', t)"
+          >{{ t }}</button>
+        </div>
       </div>
     </div>
 
@@ -56,14 +79,22 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   article: { type: Object, required: true },
   /** 当前用户是否已收藏该文章 */
   favorited: { type: Boolean, default: false },
   /** 是否显示收藏按钮（收藏页自身就是收藏列表，不显示） */
-  showFav: { type: Boolean, default: false }
+  showFav: { type: Boolean, default: false },
+  /** 精选样式：首页推荐位第一条用带封面的大卡片 */
+  featured: { type: Boolean, default: false }
 })
 defineEmits(['open', 'open-category', 'open-tag', 'toggle-fav'])
+
+/** 封面按文章 id 在 3 张星空图里轮转，同一篇文章每次进来都是同一张 */
+const COVERS = ['/covers/1.jpg', '/covers/2.jpg', '/covers/3.jpg']
+const cover = computed(() => COVERS[(Number(props.article.id) || 0) % COVERS.length])
 </script>
 
 <style scoped>
@@ -93,6 +124,75 @@ defineEmits(['open', 'open-category', 'open-tag', 'toggle-fav'])
 .rcard--fav {
   border-color: rgba(255, 215, 110, 0.3);
 }
+
+/* ---------- 精选卡片 ---------- */
+.rcard--feat {
+  padding: 0;
+  overflow: hidden;
+}
+.rcard--feat:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 34px 60px -34px rgba(124, 92, 255, 0.75);
+}
+.rcard__cover {
+  position: relative;
+  height: 172px;
+  background-color: #0b0e1c;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+/* 底部压一层深色，封面图和下方文字才衔接得上 */
+.rcard__cover-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(5, 6, 15, 0.15) 0%, rgba(5, 6, 15, 0.05) 45%, rgba(8, 10, 22, 0.92) 100%);
+}
+.rcard__pick {
+  position: relative;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  padding: 3px 11px;
+  border-radius: 999px;
+  color: #1a1030;
+  background: linear-gradient(115deg, #ffe08a, #ffb347);
+  box-shadow: 0 6px 18px -8px rgba(255, 179, 71, 0.9);
+}
+.rcard__cat--cover {
+  position: relative;
+  background: rgba(6, 10, 22, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(34, 211, 238, 0.5);
+}
+.rcard--feat .rcard__main {
+  padding: 18px 22px 17px;
+}
+.rcard--feat .rcard__title {
+  font-size: 20px;
+  line-height: 1.42;
+  letter-spacing: -0.015em;
+  padding-right: 44px;
+}
+.rcard--feat .rcard__summary {
+  -webkit-line-clamp: 3;
+  font-size: 13.8px;
+}
+/* 精选卡的收藏按钮压在封面上，换成半透明深底才看得清 */
+.rcard--feat .rcard__fav {
+  top: 12px;
+  right: 12px;
+  background: rgba(6, 10, 22, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
 .rcard__title {
   font-size: 17px;
   font-weight: 600;
@@ -218,6 +318,18 @@ defineEmits(['open', 'open-category', 'open-tag', 'toggle-fav'])
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+  .rcard--feat {
+    padding: 0;
+  }
+  .rcard--feat .rcard__cover {
+    height: 138px;
+  }
+  .rcard--feat .rcard__main {
+    padding: 15px 17px 15px;
+  }
+  .rcard--feat .rcard__title {
+    font-size: 17.5px;
   }
 }
 </style>

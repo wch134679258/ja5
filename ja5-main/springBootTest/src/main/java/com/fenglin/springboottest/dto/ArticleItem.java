@@ -24,9 +24,11 @@ public class ArticleItem {
     private Integer views;
     /** 发布时间，格式 yyyy-MM-dd HH:mm */
     private String createdAt;
+    /** 预估阅读时长（分钟） */
+    private Integer minutes;
 
     public ArticleItem(Long id, String title, String summary, String author, String category,
-                       String[] tags, Integer views, String createdAt) {
+                       String[] tags, Integer views, String createdAt, Integer minutes) {
         this.id = id;
         this.title = title;
         this.summary = summary;
@@ -35,6 +37,20 @@ public class ArticleItem {
         this.tags = tags;
         this.views = views;
         this.createdAt = createdAt;
+        this.minutes = minutes;
+    }
+
+    /** 阅读时长估算基准：中文 400 字/分钟 */
+    private static final int WORDS_PER_MINUTE = 400;
+
+    /** 按正文去空白后的字数估算阅读时长，最少 1 分钟 */
+    public static int estimateMinutes(String content) {
+        if (content == null) return 1;
+        int chars = 0;
+        for (int i = 0; i < content.length(); i++) {
+            if (!Character.isWhitespace(content.charAt(i))) chars++;
+        }
+        return Math.max(1, (int) Math.ceil(chars / (double) WORDS_PER_MINUTE));
     }
 
     /**
@@ -49,7 +65,8 @@ public class ArticleItem {
                 a.getCategory(),
                 splitTags(a.getTags()),
                 a.getViews(),
-                a.getCreatedAt() == null ? "" : a.getCreatedAt().format(FMT)
+                a.getCreatedAt() == null ? "" : a.getCreatedAt().format(FMT),
+                estimateMinutes(a.getContent())
         );
     }
 
@@ -95,5 +112,9 @@ public class ArticleItem {
 
     public String getCreatedAt() {
         return createdAt;
+    }
+
+    public Integer getMinutes() {
+        return minutes;
     }
 }
