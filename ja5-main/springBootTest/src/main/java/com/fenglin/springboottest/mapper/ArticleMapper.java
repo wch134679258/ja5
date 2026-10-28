@@ -66,6 +66,14 @@ public interface ArticleMapper extends BaseMapper<Article> {
             """)
     List<Article> selectTitleSuggest(@Param("kw") String kw, @Param("limit") int limit);
 
+    /** 全站文章总数（首页数据概览用） */
+    @Select("SELECT COUNT(*) FROM article")
+    long countArticles();
+
+    /** 全站累计浏览量；没有文章时返回 0（COALESCE 避免 SUM 返回 NULL） */
+    @Select("SELECT COALESCE(SUM(views), 0) FROM article")
+    long sumArticleViews();
+
     /**
      * 相关文章（共享标签）：与当前文章有共同标签的其它文章，
      * 按共同标签数倒序、热度倒序。SQL 在 ArticleMapper.xml 维护（含 GROUP BY）。

@@ -31,6 +31,9 @@ import java.util.Map;
  *
  * GET /api/search/suggest?q=关键词   搜索建议（标题 + 标签，供搜索框自动补全）
  *   -> [ { type: "title"|"tag", id, text } ]
+ *
+ * GET /api/stats/overview     全站概览（文章数 / 分类数 / 标签数 / 累计浏览 / 篇均浏览）
+ *   -> { articles, categories, tags, totalViews, avgViews }
  * </pre>
  *
  * 说明：以上均为公开接口，浏览内容无需登录。
@@ -67,6 +70,12 @@ public class SearchController {
     @GetMapping("/search/hot-tags")
     public List<TagStat> hotTags() {
         return searchService.hotTags();
+    }
+
+    /** 全站概览：文章数 / 分类数 / 标签数 / 累计浏览 / 篇均浏览（首页顶部数据条） */
+    @GetMapping("/stats/overview")
+    public Map<String, Object> overview() {
+        return searchService.overview();
     }
 
     /** 搜索建议：命中关键词的文章标题 + 标签（搜索框自动补全） */

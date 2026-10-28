@@ -34,6 +34,11 @@ body.view-home{
   overflow-x:hidden;
   display:block;
   place-items:initial;
+  /* 关键修复：body 从 grid 切回 block 后，Chrome 里宽度仍是 shrink-to-fit（内容宽度），
+     在 1440 宽的屏幕上 body 只有 ~839px 宽，整页挤在左边、右侧留出一大片空白。
+     显式撑满视口宽度，页面才能居中并填满屏幕。 */
+  width:100%;
+  min-width:100%;
 }
 
 /* ============ background ============ */

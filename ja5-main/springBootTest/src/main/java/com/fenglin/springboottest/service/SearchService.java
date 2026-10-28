@@ -129,6 +129,26 @@ public class SearchService {
         return tagMapper.selectHotTags(HOT_TAG_LIMIT);
     }
 
+    /**
+     * 全站概览：文章数 / 分类数 / 标签数 / 累计浏览 / 篇均浏览。
+     * 供首页顶部的数据条使用，全部是聚合查询，不随数据量增长而变慢。
+     */
+    public Map<String, Object> overview() {
+        long articles = articleMapper.countArticles();
+        long views = articleMapper.sumArticleViews();
+        long categories = categoryMapper.selectCount(null);
+        long tags = tagMapper.selectCount(null);
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("articles", articles);
+        resp.put("categories", categories);
+        resp.put("tags", tags);
+        resp.put("totalViews", views);
+        // 篇均浏览：没有文章时按 0 处理，避免除零
+        resp.put("avgViews", articles == 0 ? 0 : Math.round((double) views / articles));
+        return resp;
+    }
+
     // ============================================================
     //  二、补充：搜索建议（搜索框自动补全）
     // ============================================================
