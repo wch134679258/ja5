@@ -235,7 +235,9 @@ body.view-home{
 .mode-login .row[data-for~="login"],
 .mode-signup .row[data-for~="signup"],
 .mode-reset .row[data-for~="reset"]{display:flex;animation:rise .5s var(--ease) both}
-.check{display:flex;align-items:center;gap:9px;color:var(--muted);cursor:pointer;user-select:none}
+.check{display:flex;align-items:center;gap:9px;color:var(--muted);cursor:pointer;user-select:none;
+  /* 整行可点：链接外区域的点击都交给 label 切换复选框 */
+  position:relative;z-index:1;padding:2px 0}
 .check input{display:none}
 .box{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--stroke);
   display:grid;place-items:center;transition:.25s var(--ease)}
@@ -245,6 +247,10 @@ body.view-home{
 .link{background:none;border:0;color:var(--a2);font:inherit;font-size:13px;cursor:pointer;
   padding:0;transition:opacity .25s,filter .25s}
 .link:hover{filter:brightness(1.25)}
+
+/* 协议未勾选提示 */
+.agree-error{margin:8px 0 0;font-size:12.5px;color:#ff8a9c;letter-spacing:.02em;
+  animation:rise .3s var(--ease) both}
 
 /* 提交级错误横幅（接口失败等）*/
 .form-error{margin-top:14px;padding:11px 14px;border-radius:12px;font-size:13px;color:#ffd7df;

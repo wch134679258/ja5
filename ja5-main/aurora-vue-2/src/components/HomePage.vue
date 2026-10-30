@@ -174,15 +174,15 @@
               </div>
             </div>
 
-            <!-- 错误提示 -->
-            <div v-else-if="error" class="state state--error">
+            <!-- 错误提示（首屏失败：整块替换；追加失败：保留已加载内容，仅显示重试条） -->
+            <div v-else-if="error && !list.length" class="state state--error">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
                    stroke-linecap="round">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 8v4.5M12 16h.01" />
               </svg>
               <p>{{ error }}</p>
-              <button class="state__btn" type="button" @click="runSearch(page)">重试</button>
+              <button class="state__btn" type="button" @click="runSearch(1)">重试</button>
             </div>
 
             <!-- 空结果 -->
@@ -213,25 +213,22 @@
               />
             </div>
 
-            <!-- 数字分页 -->
-            <div v-if="!loading && !error && pages > 1" class="pager">
-              <button class="pager__btn" type="button" :disabled="page <= 1" @click="go(page - 1)">
-                上一页
-              </button>
-              <div class="pager__nums">
-                <button
-                  v-for="(n, i) in pageList"
-                  :key="i"
-                  class="pager__num"
-                  :class="{ 'pager__num--on': n === page, 'pager__num--gap': n === '…' }"
-                  type="button"
-                  :disabled="n === '…' || n === page"
-                  @click="typeof n === 'number' && go(n)"
-                >{{ n }}</button>
-              </div>
-              <button class="pager__btn" type="button" :disabled="page >= pages" @click="go(page + 1)">
-                下一页
-              </button>
+            <!-- 无限滚动：滚到底自动追加下一页 -->
+            <div v-if="!loading && !error && list.length" ref="sentinelEl" class="feed-sentinel" aria-hidden="true"></div>
+
+            <!-- 追加失败：保留内容，显示重试条 -->
+            <div v-if="!loading && error && list.length" class="feed-more feed-more--err">
+              加载失败：<button type="button" class="feed-more__retry" @click="runSearch(page + 1, true)">重试</button>
+            </div>
+
+            <!-- 追加加载中 -->
+            <div v-if="!error && list.length && loading" class="feed-more">
+              <span class="feed-more__spin"></span>正在加载更多…
+            </div>
+
+            <!-- 到底提示 -->
+            <div v-else-if="!loading && !error && list.length && !hasMore" class="feed-more feed-more--end">
+              <span class="feed-more__line"></span>已经到底啦，去别的分类逛逛吧<span class="feed-more__line"></span>
             </div>
           </section>
         </div>
@@ -326,7 +323,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import SearchBar from './SearchBar.vue'
 import SiteNav from './SiteNav.vue'
 import ArticleCard from './ArticleCard.vue'
@@ -501,32 +498,12 @@ const activeFilterText = computed(() => {
   return ''
 })
 
-/** 数字分页：总页数 <= 7 全展示；否则 1 … cur-1 cur cur+1 … last */
-const pageList = computed(() => {
-  const totalPages = pages.value
-  const cur = page.value
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1)
-  }
-  const set = new Set([1, 2, cur - 1, cur, cur + 1, totalPages - 1, totalPages])
-  const arr = [...set].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b)
-  const out = []
-  let prev = 0
-  for (const n of arr) {
-    if (prev && n - prev > 1) out.push('…')
-    out.push(n)
-    prev = n
-  }
-  return out
-})
-
 /* ---------- 主流程 ---------- */
 
-/** 发起请求。p 为目标页码 */
-async function runSearch (p = 1) {
+/** 发起请求。p 为目标页码；append=true 时把结果追加到已有列表（无限滚动），否则整体替换 */
+async function runSearch (p = 1, append = false) {
   loading.value = true
   error.value = ''
-  page.value = p
 
   try {
     const res = await searchArticles(query.value, {
@@ -536,19 +513,54 @@ async function runSearch (p = 1) {
       page: p,
       size: PAGE_SIZE
     })
-    list.value = (res && res.list) || []
+    const items = (res && res.list) || []
+    // 追加模式下去重，防止并发触发导致同一条文章出现两次
+    list.value = append
+      ? list.value.concat(items.filter((it) => !list.value.some((x) => x.id === it.id)))
+      : items
     total.value = (res && res.total) || 0
     pages.value = (res && res.pages) || 0
     page.value = (res && res.page) || p
   } catch (e) {
-    list.value = []
-    total.value = 0
-    pages.value = 0
+    if (!append) {
+      list.value = []
+      total.value = 0
+      pages.value = 0
+    }
     error.value = (e && e.message) || '搜索失败，请稍后再试'
   } finally {
     loading.value = false
   }
 }
+
+/* ---------- 无限滚动（视频网站式下拉浏览） ---------- */
+const sentinelEl = ref(null)   // 列表末尾的哨兵元素
+let observer = null
+
+/** 是否还有更多内容可加载 */
+const hasMore = computed(() => pages.value > 0 && page.value < pages.value)
+
+/** 滚到底附近时自动加载下一页 */
+function loadMore () {
+  if (loading.value || !hasMore.value || error.value) return
+  runSearch(page.value + 1, true)
+}
+
+/** 建立滚动哨兵监听（列表结构变化时重建） */
+function setupObserver () {
+  if (observer) { observer.disconnect(); observer = null }
+  if (!sentinelEl.value || typeof IntersectionObserver === 'undefined') return
+  observer = new IntersectionObserver((entries) => {
+    // 哨兵进入视口且还有内容 -> 追加下一页
+    if (entries.some((e) => e.isIntersecting)) loadMore()
+  }, { rootMargin: '320px 0px' })   // 提前 320px 预加载，滚动时不出现空档
+  observer.observe(sentinelEl.value)
+}
+
+// 哨兵元素在「有内容且加载完成」后才渲染，用 watch 挂监听
+watch(sentinelEl, (el) => { if (el) setupObserver() })
+
+onBeforeUnmount(() => { if (observer) observer.disconnect() })
 
 /** 搜索框提交 */
 function onSearch (kw) {
@@ -640,13 +652,6 @@ function resetAll () {
   tagId.value = null
   sort.value = 'hot'
   runSearch(1)
-}
-
-/** 翻页 */
-function go (p) {
-  if (p < 1 || (pages.value && p > pages.value)) return
-  runSearch(p)
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 /* ---------- 收藏（卡片星星按钮） ---------- */
@@ -1528,71 +1533,58 @@ onMounted(async () => {
   gap: 14px;
 }
 
-/* ============ 数字分页 ============ */
-.pager {
+/* ============ 无限滚动（下拉浏览） ============ */
+/* 哨兵：1px 高的隐形元素，进入视口即触发加载下一页 */
+.feed-sentinel {
+  height: 1px;
+  margin-top: 14px;
+}
+.feed-more {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 14px 0 4px;
-}
-.pager__btn {
-  border: 1px solid var(--stroke);
-  background: var(--glass);
-  color: var(--ink);
-  font: inherit;
+  gap: 9px;
+  padding: 18px 0 6px;
   font-size: 13px;
-  padding: 8px 18px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.25s, transform 0.25s var(--ease), opacity 0.25s;
-}
-.pager__btn:hover:not(:disabled) {
-  background: var(--glass-2);
-  transform: translateY(-1px);
-}
-.pager__btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.pager__nums {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.pager__num {
-  min-width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--stroke);
-  background: var(--glass);
+  font-weight: 300;
   color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.feed-more__spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(124, 92, 255, 0.25);
+  border-top-color: var(--a1);
+  animation: feedspin 0.8s linear infinite;
+}
+@keyframes feedspin {
+  to { transform: rotate(360deg); }
+}
+.feed-more--end {
+  gap: 14px;
+}
+.feed-more__line {
+  width: 44px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--stroke), transparent);
+}
+.feed-more--err {
+  color: #ff8a9c;
+}
+.feed-more__retry {
+  border: 1px solid rgba(255, 138, 156, 0.45);
+  background: rgba(255, 95, 120, 0.1);
+  color: #ff8a9c;
   font: inherit;
-  font-size: 13px;
-  padding: 0 8px;
-  border-radius: 10px;
+  font-size: 12.5px;
+  padding: 3px 14px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: color 0.25s, background 0.25s, border-color 0.25s, transform 0.25s var(--ease);
+  transition: background 0.25s;
 }
-.pager__num:hover:not(:disabled) {
-  color: var(--ink);
-  border-color: rgba(124, 92, 255, 0.45);
-  transform: translateY(-1px);
-}
-.pager__num--on {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(115deg, var(--a1), #5b8bff 55%, var(--a2));
-  box-shadow: 0 10px 22px -12px rgba(124, 92, 255, 0.9);
-  cursor: default;
-}
-.pager__num--gap {
-  border: 0;
-  background: none;
-  cursor: default;
-  color: var(--muted);
+.feed-more__retry:hover {
+  background: rgba(255, 95, 120, 0.22);
 }
 
 /* ============ 骨架 / 状态 ============ */

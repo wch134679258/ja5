@@ -32,7 +32,12 @@ for %%f in (
   migrate-article-content.sql
 ) do (
   echo   - %%f
-  "%MYSQL%" -uroot -p123456 --default-character-set=utf8mb4 springboot_test < "springBootTest\%%f" 2>nul
+  rem init-db.sql 负责建库, 不能传不存在的库作默认库
+  if "%%f"=="init-db.sql" (
+    "%MYSQL%" -uroot -p123456 --default-character-set=utf8mb4 < "springBootTest\%%f" 2>nul
+  ) else (
+    "%MYSQL%" -uroot -p123456 --default-character-set=utf8mb4 springboot_test < "springBootTest\%%f" 2>nul
+  )
 )
 
 echo [2/3] 重建测试账号 verify用户 / abc12345

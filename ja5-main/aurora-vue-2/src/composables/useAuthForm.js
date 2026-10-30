@@ -32,6 +32,9 @@ export function useAuthForm (emit) {
   const captchaLoading = ref(false)
   const captchaError = ref('')     // 验证码字段的报错文案
 
+  // 协议未勾选时的提示文案（空串表示不显示）
+  const agreeError = ref('')
+
   // 拉取一张新图形验证码
   async function loadCaptcha () {
     captchaLoading.value = true
@@ -55,6 +58,7 @@ export function useAuthForm (emit) {
   function clearErrors () {
     invalid.name = invalid.pass = invalid.pass2 = false
     agreeInvalid.value = false
+    agreeError.value = ''
   }
 
   function tabOn (m) {
@@ -105,7 +109,7 @@ export function useAuthForm (emit) {
       if (!(form.pass.length >= 8 && /[A-Za-z]/.test(form.pass) && /\d/.test(form.pass))) { invalid.pass = true; ok = false; first = first || 'pass' }
       if (form.pass2 !== form.pass || !form.pass2) { invalid.pass2 = true; ok = false; first = first || 'pass2' }
       if (!form.code.trim()) { invalid.code = true; captchaError.value = '请输入图形验证码'; ok = false; first = first || 'code' }
-      if (!agree.value) { ok = false; agreeInvalid.value = true }
+      if (!agree.value) { ok = false; agreeInvalid.value = true; agreeError.value = '请先阅读并同意服务条款与隐私政策'; first = first || 'agree' }
     }
     if (mode.value === 'login') {
       if (form.pass.length < 6) { invalid.pass = true; ok = false; first = first || 'pass' }
@@ -179,7 +183,7 @@ export function useAuthForm (emit) {
   return {
     mode, form, remember, agree, agreeInvalid, invalid, showPass, submitState, formError,
     headSwap, headTitle, headSub, submitText, strength,
-    captchaId, captchaImage, captchaLoading, captchaError,
+    captchaId, captchaImage, captchaLoading, captchaError, agreeError,
     clearField, clearErrors, tabOn, setMode, togglePass, onPassInput,
     validate, onSubmit, refreshCaptcha, loadCaptcha, resetToLogin
   }

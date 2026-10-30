@@ -65,7 +65,7 @@
 
       <div class="row" data-for="signup">
         <label class="check">
-          <input type="checkbox" id="agree" v-model="agree" @change="agreeInvalid = false" />
+          <input type="checkbox" id="agree" v-model="agree" />
           <span class="box" :style="agreeInvalid ? { borderColor: 'rgba(255,95,120,.8)' } : null">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
           </span>
@@ -73,6 +73,8 @@
         </label>
         <button type="button" class="link" @click="setMode('login')">已有账号？去登录</button>
       </div>
+
+      <p class="agree-error" v-if="agreeError">{{ agreeError }}</p>
 
       <p class="form-error" v-if="formError">{{ formError }}</p>
 
@@ -101,11 +103,20 @@ import SocialButtons from './SocialButtons.vue'
 const emit = defineEmits(['success'])
 
 const {
-  mode, form, remember, agree, agreeInvalid, invalid, showPass, submitState, formError,
+  mode, form, remember, agree, agreeInvalid, agreeError, invalid, showPass, submitState, formError,
   headSwap, headTitle, headSub, submitText, strength,
   captchaImage, captchaLoading, captchaError, refreshCaptcha, loadCaptcha,
   clearField, setMode, togglePass, onPassInput, onSubmit, resetToLogin: resetForm
 } = useAuthForm(emit)
+
+// 勾选协议后立即清掉提示
+// 用 watch 而不是 @change：v-model 与 @change 同批触发，@change 里读到的是旧值
+watch(agree, (val) => {
+  if (val) {
+    agreeInvalid.value = false
+    agreeError.value = ''
+  }
+})
 
 const fields = ref(null)
 const submitEl = ref(null)
@@ -126,7 +137,9 @@ function handleSubmit () {
   const { ok, first } = onSubmit()
   if (!ok) {
     syncHeight()
-    if (first && fieldMap[first].value) fieldMap[first].value.focus()
+    // agree 不是输入框，没有对应组件，跳过聚焦避免报错
+    const target = first && fieldMap[first]
+    if (target && target.value) target.value.focus()
   }
 }
 
