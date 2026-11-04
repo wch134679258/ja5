@@ -229,11 +229,13 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 首页模式下，给固定层留出滚动空间（.home 自身负责布局与留白） */
-:global(body.view-home) .grain,
-:global(body.view-home) .vignette {
-  position: fixed;
-}
+/* 注意：这里曾经写过
+     :global(body.view-home) .grain, :global(body.view-home) .vignette { position: fixed }
+   以为只作用于 .grain/.vignette，但 Vue 的 scoped 编译会丢掉后面的后代选择器，
+   实际产出是「body.view-home, body.view-home { position: fixed }」——
+   等于给 body 加了固定定位，body 脱离文档流后 html 只高一屏，
+   全站所有非登录页都滚不动（scrollTop 赋值无效、滚轮无反应）。
+   .grain / .vignette 的固定定位在 style.css 里已经写了，这里无需重复。 */
 
 /* 页脚容器：与各页面内容同宽，居中排布 */
 .footwrap {

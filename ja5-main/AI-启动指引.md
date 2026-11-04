@@ -397,3 +397,125 @@ cd /d "%~dp0springBootTest"
 `npm run dev` / `spring-boot:run` 在 AI 沙盒后台跑，进程会被回收（实测后端启动成功
 2 秒、运行约 26 秒后即被终止，日志无应用级错误）。**只能用于冒烟验证**。
 要长期运行请让用户双击 `启动项目.bat`，在用户自己的会话里不会被回收。
+
+---
+
+## 十三、2026-11-04 启动链路重写（快 2~3 倍 + 一键就绪）
+
+### 13.1 项目路径已变
+
+**当前路径：`D:\workSpace\ja5\ja5-main`**（本文档前面章节写的 `C:\Users\Administrator\Desktop\ja3-main`
+是历史路径，已失效；脚本内部统一用 `%~dp0` 相对定位，换目录不用改脚本）。
+
+### 13.2 实测数据（同一台机器，热启动）
+
+| 环节 | 旧做法 | 新做法 | 结果 |
+|---|---|---|---|
+| 后端就绪 | `mvnw spring-boot:run` **11.2 s** | 增量编译 + `java -cp` 直启 **≈7 s**（无改动编译 3.9 s + JVM 3.5 s） | ↓ 约 40% |
+| 后端依赖解析 | 每次 Maven 全量启动 | `classpath.txt` 缓存，仅 pom 变更时重算 | 省 4 s |
+| 前端就绪 | `npm run dev` **3.4 s** | `node node_modules/vite/bin/vite.js` **1.4 s** | ↓ 约 60% |
+| 冷启动 | 两个窗口各跑各的，人工判断好了没 | 并行 + 健康检查 + 自动开浏览器 | 少等一轮 |
+| 一键启动 | 无就绪反馈 | 主控轮询 `/api/auth/captcha` 与 `/`，3~8 s 后自动打开页面 | 可感知 |
+
+### 13.3 新脚本分工
+
+```
+启动项目.bat   主控：环境检查 → 清端口 → 数据库自检(可选自动恢复) → 并行拉起两端 → 健康检查 → 开浏览器
+启动后端.bat   单启后端：依赖 classpath 缓存 → mvnw -o 增量编译 → java 直启（前台，Ctrl+C 停）
+启动前端.bat   单启前端：依赖缺了才装 → node 直启 vite
+停止项目.bat   按端口结束进程（不再按进程名批量杀 java/node，避免误杀别的项目）
+恢复数据.bat   7 个幂等迁移 + 测试账号 + migrate-admin 提权（新增，之前漏了）
+```
+
+要点：
+- **后端不再走 `spring-boot:run`**：该插件在离线模式下会因 `spring-boot-loader-tools` 等
+  插件依赖缺失**直接报错退出**（本次实测 `mvnw -o spring-boot:run` 必失败）。改为
+  `dependency:build-classpath` 生成 `target/classpath.txt` + `java -cp` 直启，**离线可用**。
+- 编译仍走 Maven（`-o` 优先，失败自动切联网），保证增量编译正确性。
+- JVM 参数 `-XX:TieredStopAtLevel=1 -Xss512k -Dspring.jmx.enabled=false`：开发环境只做
+  C1 编译换启动速度；devtools 热重启依然生效（日志里 `restartedMain` 可见）。
+
+### 13.4 本次踩的三个坑（改脚本必看）
+
+1. **`set /p` 只能读 1024 字符**：classpath.txt 有 7.3 KB，`set /p DEPCP=<target\classpath.txt`
+   会静默截断，表现为 `NoClassDefFoundError: BCryptPasswordEncoder`（前 1KB 里没有这个 jar）。
+   必须用 `for /f "usebackq delims=" %%L in ("target\classpath.txt") do set "DEPCP=%%L"`。
+2. **`!VAR!` 需要 `setlocal enabledelayedexpansion`**，否则原样传到命令行；
+   反之 `%VAR%` 在 `( )` 块内会在解析时就展开。两种写法别混用。
+3. **`call :sub && set X=1` 的坑**：`if 条件 call :sub && set ...` 里条件为假时 `if` 本身
+   返回 0，`&&` 后的语句**仍会执行**。要写成 `( call :sub \n if errorlevel 1 set ... )`。
+
+### 13.5 数据库自检
+
+主控会查 `springboot_test.article` 是否有数据；缺失时用 `choice` 询问（15 秒默认 Y），
+同意后调用 `恢复数据.bat`（幂等）。这样「开机后库被清空」不再需要人工先跑恢复脚本。
+
+### 13.6 沙盒里跑不起来/被回收时的替代验证法
+
+沙盒内 `agent-browser` 守护进程会卡住，可用已下载的 Chrome 直接截图验证 UI：
+
+```bash
+"/c/Users/Administrator/.agent-browser/browsers/chrome-157.0.8103.38/chrome.exe" \
+  --headless=new --disable-gpu --no-sandbox --hide-scrollbars \
+  --window-size=1440,3000 --virtual-time-budget=15000 \
+  --screenshot="C:/tmp/home.png" "http://localhost:5173/"
+```
+
+登录态怎么造：`POST /api/auth/login` 拿 token → 在 `aurora-vue-2/public/` 放一个临时
+`__seed.html`（写 `localStorage.setItem('aurora_token', token)` 后 `location.replace('/')`），
+截完图记得删掉，别提交。
+
+
+补充：Chrome 的 `--window-size` 有最小窗口宽度，窄屏（如 390）会被裁切而不是重新布局。
+要看真实移动端，用 CDP 覆盖视口：
+
+```js
+await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true })
+```
+
+（`chrome --headless --remote-debugging-port=9333` 起进程，再用 Node 内置 WebSocket 走 CDP，
+Node 18+ 无需装 puppeteer。）
+
+---
+
+## 十四、2026-11-04 首页改版（结构重排）
+
+### 14.1 问题定位
+
+对照截图（1440×900）确认，问题不在配色而在结构：首屏上方约 40% 是空白、13 篇文章同一规格平铺、
+除第一张卡外全无封面、数据条 4 张玻璃卡纯占位、分类两行 chips 噪音、侧栏「今日星语」是随机文案、
+HomePage 自带 footer 与 SiteFooter 重复渲染。
+
+### 14.2 改动
+
+| 位置 | 改动 |
+|---|---|
+| `components/HomePage.vue` | 模板与样式重写；脚本逻辑（检索/分页/无限滚动/收藏/跨页筛选）**原样保留** |
+| `components/PickCard.vue` | 新增：带封面的精选卡，`lead` 变体用作首屏头条 |
+| `components/ArticleRow.vue` | 新增：紧凑列表行（小封面 + 标题 + 元信息 + 浏览数） |
+| `utils/cover.js` | 新增：按文章 id 轮转 `public/covers/*.jpg`，三个卡片组件共用 |
+| `ArticleCard.vue` | **未改动**（发现页 / 收藏页继续用它，零回归风险） |
+
+新结构：Hero 左文案右头条 → 内联指标条 → 单行分类 tab（选中后展开二级标签）→ 精选三列 + 列表行 →
+侧栏（热门榜单 / 分类分布 / 继续探索 + 随便逛逛）。删掉「今日星语」与页面自带 footer。
+
+### 14.3 几个判断规则（改的时候别踩）
+
+- `showPicks = !hasFilter && list.length > 3`：搜索/筛选结果里每条命中项地位相同，**不要**硬挑三条当精选。
+- 精选取 `list.slice(0,3)`，列表行取 `slice(3)`；无限滚动追加的分页只进列表行。
+- 头条取 `pool[0] || list[0]`：`pool` 是全站最热 50 条，比当前列表更稳。
+- **类名别用 `.tabs` / `.tab`**：`style.css` 里给登录页 tabs 写过 `.tabs{background/padding}` 和 `.tab{flex:1}`，
+  冲突会让首页分类按钮被均分撑满整行。本次改用 `.cat-tabs` / `.cat-tab`。
+
+### 14.4 验证记录
+
+- `npm run build` 65 modules 通过（改版前 59）
+- CDP 实测三种状态：默认态（精选 3 + 列表 7 + 共 13 条）、点「前端」（精选隐藏、2 条、二级标签展开）、
+  搜索「凡」+ 前端筛选（0 条、面包屑同时显示关键词与分类）
+- 1440 / 1024 / 390 三个宽度：`document.scrollWidth == clientWidth == 390`，无横向溢出
+
+### 14.5 已知未做
+
+- `SiteNav` 在 ≤900px 直接 `display:none` 掉菜单，**移动端没有导航入口**（首页改版前就存在，本次未动）
+- 首页「更新节奏」热力图没做：缺按日期的发布/浏览量数据，需要后端补统计接口

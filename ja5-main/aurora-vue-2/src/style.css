@@ -13,8 +13,16 @@
   --ease:cubic-bezier(.22,1,.36,1);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
+/* 修复：原来这里写 html,body{height:100%}，把 body 定成了视口高度，
+   长页面（首页 3000+px）被塞进一个高度固定的 body 里 —— body 的 overflow
+   又会传播到视口，结果两边都不是滚动容器，页面完全滚不动
+   （scrollTop 赋值无效、滚轮无反应，底部内容读不到）。
+   改成 min-height：body 至少一屏（登录页依旧垂直居中），内容多高就多高，
+   滚动交还给视口。100dvh 兼顾移动端地址栏收起。 */
+html{min-height:100%}
 body{
+  min-height:100vh;
+  min-height:100dvh;
   background:var(--bg);
   color:var(--ink);
   font-family:"Outfit","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
