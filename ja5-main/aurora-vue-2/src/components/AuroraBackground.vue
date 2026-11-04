@@ -56,8 +56,8 @@ function draw () {
     const y = (b.y + Math.cos(t * b.s * 1.27 + b.p) * .11) * H
     const r = b.r * m * (.85 + Math.sin(t * b.s * 1.9 + b.p) * .15)
     const g = ctx.createRadialGradient(x, y, 0, x, y, r)
-    g.addColorStop(0, `rgba(${b.c},.50)`)
-    g.addColorStop(.42, `rgba(${b.c},.13)`)
+    g.addColorStop(0, `rgba(${b.c},.40)`)
+    g.addColorStop(.42, `rgba(${b.c},.11)`)
     g.addColorStop(1, `rgba(${b.c},0)`)
     ctx.fillStyle = g
     ctx.beginPath()
@@ -129,7 +129,7 @@ function drawOnce () {
   const m = Math.min(W, H)
   for (const b of BLOBS) {
     const g = ctx.createRadialGradient(b.x * W, b.y * H, 0, b.x * W, b.y * H, b.r * m)
-    g.addColorStop(0, `rgba(${b.c},.5)`)
+    g.addColorStop(0, `rgba(${b.c},.4)`)
     g.addColorStop(1, `rgba(${b.c},0)`)
     ctx.fillStyle = g
     ctx.beginPath()

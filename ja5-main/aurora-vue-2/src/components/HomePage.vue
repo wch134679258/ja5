@@ -3,151 +3,259 @@
     <!-- ============ 顶部导航 ============ -->
     <SiteNav :user="user" active="home" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
 
-    <!-- ============ 主体 ============ -->
-    <main class="main">
-      <!-- Hero：问候 + 搜索栏 -->
+    <main class="page">
+      <!-- ============================================================
+           Hero：左侧「问候 + 搜索 + 热搜」，右侧「今日头条」沉浸封面卡
+           ============================================================ -->
       <section class="hero">
-        <div class="hero__aura" aria-hidden="true"></div>
-        <span class="hero__badge">{{ greeting.badge }}</span>
-        <h1 class="hero__title">
-          {{ greeting.text }}，<em>{{ userName }}</em>
-          <br />今天想找点什么？
-        </h1>
-        <p class="hero__sub">
-          {{ todayText }}<template v-if="overview">，星海已收录 {{ overview.articles }} 篇内容</template>
-        </p>
+        <div class="hero__copy">
+          <p class="hero__eyebrow">
+            <i class="hero__pulse" aria-hidden="true"></i>
+            {{ greeting.text }} · {{ todayText }}
+          </p>
 
-        <div class="hero__search">
-          <SearchBar
-            v-model="keyword"
-            placeholder="输入关键词开始搜索…"
-            @search="onSearch"
-            @clear="onClear"
-            @pick="onPick"
-          />
-        </div>
+          <h1 class="hero__title">
+            {{ greeting.text }}，<em>{{ userName }}</em>
+          </h1>
 
-        <!-- 热门标签：点击触发二级标签筛选 -->
-        <div v-if="hotTags.length" class="hero__tags">
-          <span class="hero__tags-label">热门</span>
-          <button
-            v-for="t in hotTags"
-            :key="t.id"
-            class="tag"
-            :class="{ 'tag--on': tagId === t.id }"
-            type="button"
-            :title="t.categoryName ? t.categoryName + ' · ' + t.articleCount + ' 篇' : t.articleCount + ' 篇'"
-            @click="selectTag(t)"
-          >{{ t.name }}</button>
-        </div>
-      </section>
+          <p class="hero__lede">
+            <template v-if="overview">
+              星海里躺着 <b>{{ fmtNum(overview.articles) }}</b> 篇文章、
+              <b>{{ fmtNum(overview.tags) }}</b> 个标签<template v-if="overview.totalViews">，
+              累计被读过 <b>{{ fmtNum(overview.totalViews) }}</b> 次</template>。
+            </template>
+            <template v-else>从这里找到你需要的技术与灵感。</template>
+            挑一篇，开始今天的漫游。
+          </p>
 
-      <!-- ============ 数据概览条 ============ -->
-      <section class="stats" aria-label="站点数据概览">
-        <div v-for="s in statCards" :key="s.key" class="stat">
-          <span class="stat__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path :d="s.icon" />
-            </svg>
-          </span>
-          <div class="stat__body">
-            <b class="stat__num">{{ s.value }}</b>
-            <span class="stat__label">{{ s.label }}</span>
+          <div class="hero__search">
+            <SearchBar
+              v-model="keyword"
+              placeholder="搜索标题、标签、正文…"
+              @search="onSearch"
+              @clear="onClear"
+              @pick="onPick"
+            />
           </div>
-        </div>
-      </section>
 
-      <!-- ============ 主区：左侧内容 + 右侧侧栏 ============ -->
-      <div class="board">
-        <div class="board__main">
-          <!-- ============ 分级分类导航 ============ -->
-          <section v-if="categories.length" class="cats">
-            <!-- 第一级：分类 -->
-            <div class="cats__row">
-              <span class="cats__label">分类</span>
-              <div class="cats__chips">
-                <button
-                  class="cat"
-                  :class="{ 'cat--on': !categoryId && !tagId }"
-                  type="button"
-                  @click="selectCategory(null)"
-                >
-                  全部
-                  <em>{{ grandTotal }}</em>
-                </button>
-                <button
-                  v-for="c in categories"
-                  :key="c.id"
-                  class="cat"
-                  :class="{ 'cat--on': categoryId === c.id }"
-                  type="button"
-                  @click="selectCategory(c)"
-                >
-                  {{ c.name }}
-                  <em>{{ c.articleCount }}</em>
-                </button>
+          <div v-if="hotTags.length" class="hero__hot">
+            <span class="hero__hot-label">热搜</span>
+            <button
+              v-for="t in hotTags.slice(0, 5)"
+              :key="t.id"
+              class="chip"
+              :class="{ 'chip--on': tagId === t.id }"
+              type="button"
+              :title="t.categoryName ? t.categoryName + ' · ' + t.articleCount + ' 篇' : t.articleCount + ' 篇'"
+              @click="selectTag(t)"
+            >{{ t.name }}</button>
+          </div>
+
+          <ul v-if="overview" class="hero__stats" aria-label="站点数据">
+            <li><b>{{ fmtNum(overview.articles) }}</b><span>篇文章</span></li>
+            <li><b>{{ fmtNum(overview.categories) }}</b><span>个分类</span></li>
+            <li><b>{{ fmtNum(overview.tags) }}</b><span>个标签</span></li>
+            <li><b>{{ fmtNum(overview.totalViews) }}</b><span>次阅读</span></li>
+          </ul>
+        </div>
+
+        <!-- 今日头条：封面铺满整卡，文字压在底部渐变上 -->
+        <article
+          v-if="leadArticle"
+          class="lead"
+          tabindex="0"
+          role="button"
+          :aria-label="'阅读头条：' + leadArticle.title"
+          @click="$emit('open-article', leadArticle.id)"
+          @keydown.enter="$emit('open-article', leadArticle.id)"
+        >
+          <div class="lead__cover" :style="{ backgroundImage: 'url(' + coverAt(0) + ')' }">
+            <span class="lead__scrim"></span>
+            <span class="lead__badge">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="m12 2 2.2 6.1L20.5 10l-5 4.3 1.5 6.4L12 17.2 7 20.7l1.5-6.4L3.5 10l6.3-1.9z" />
+              </svg>
+              今日头条
+            </span>
+
+            <div class="lead__body">
+              <button
+                v-if="leadArticle.category"
+                class="lead__cat"
+                type="button"
+                @click.stop="onOpenCategory(leadArticle.categoryId)"
+              >{{ leadArticle.category }}</button>
+              <h2 class="lead__title">{{ leadArticle.title }}</h2>
+              <p class="lead__sum">{{ leadArticle.summary }}</p>
+              <div class="lead__foot">
+                <span class="lead__meta">
+                  <template v-if="leadArticle.author">{{ leadArticle.author }}</template>
+                  <template v-if="leadArticle.minutes"> · 约 {{ leadArticle.minutes }} 分钟</template>
+                  · {{ leadArticle.views }} 次浏览
+                </span>
+                <span class="lead__go">阅读全文
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h13M13 6l6 6-6 6" />
+                  </svg>
+                </span>
               </div>
             </div>
 
-            <!-- 第二级：当前分类下的标签 -->
-            <div v-if="currentCategory && currentCategory.tags.length" class="cats__row cats__row--sub">
-              <span class="cats__label">{{ currentCategory.name }}标签</span>
-              <div class="cats__chips">
-                <button
-                  class="subtag"
-                  :class="{ 'subtag--on': !tagId }"
-                  type="button"
-                  @click="selectTag(null)"
-                >不限</button>
-                <button
-                  v-for="t in currentCategory.tags"
-                  :key="t.id"
-                  class="subtag"
-                  :class="{ 'subtag--on': tagId === t.id }"
-                  type="button"
-                  @click="selectTag(t)"
-                >{{ t.name }}</button>
-              </div>
+            <button
+              v-if="showFavBtn"
+              class="lead__fav"
+              :class="{ 'lead__fav--on': favIds.has(leadArticle.id) }"
+              type="button"
+              :title="favIds.has(leadArticle.id) ? '取消收藏' : '收藏'"
+              :aria-label="favIds.has(leadArticle.id) ? '取消收藏' : '收藏'"
+              @click.stop="toggleFavorite(leadArticle)"
+            >
+              <svg viewBox="0 0 24 24" :fill="favIds.has(leadArticle.id) ? 'currentColor' : 'none'"
+                   stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8L3.5 9.7l5.9-.8z" />
+              </svg>
+            </button>
+          </div>
+        </article>
+      </section>
+
+      <!-- ============================================================
+           吸顶筛选条：分类 / 排序 / 计数，滚到哪儿都能换条件
+           ============================================================ -->
+      <div ref="filterSentinel" class="stick-sentinel" aria-hidden="true"></div>
+
+      <div class="filter" :class="{ 'filter--stuck': stuck }">
+        <nav class="filter__cats" aria-label="分类导航">
+          <button
+            class="cat"
+            :class="{ 'cat--on': !categoryId && !tagId }"
+            type="button"
+            @click="selectCategory(null)"
+          >
+            全部<i>{{ grandTotal }}</i>
+          </button>
+          <button
+            v-for="c in categories"
+            :key="c.id"
+            class="cat"
+            :class="{ 'cat--on': categoryId === c.id }"
+            type="button"
+            @click="selectCategory(c)"
+          >
+            {{ c.name }}<i>{{ c.articleCount }}</i>
+          </button>
+        </nav>
+
+        <div class="filter__right">
+          <span v-if="!loading && !error" class="filter__count">{{ total }} 条</span>
+          <div class="seg" role="group" aria-label="排序方式">
+            <button
+              class="seg__btn"
+              :class="{ 'seg__btn--on': sort === 'hot' }"
+              type="button"
+              @click="changeSort('hot')"
+            >热度</button>
+            <button
+              class="seg__btn"
+              :class="{ 'seg__btn--on': sort === 'new' }"
+              type="button"
+              @click="changeSort('new')"
+            >最新</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 二级标签：选中分类后才展开 -->
+      <div v-if="currentCategory && currentCategory.tags.length" class="subtags">
+        <button
+          class="subtag"
+          :class="{ 'subtag--on': !tagId }"
+          type="button"
+          @click="selectTag(null)"
+        >不限</button>
+        <button
+          v-for="t in currentCategory.tags"
+          :key="t.id"
+          class="subtag"
+          :class="{ 'subtag--on': tagId === t.id }"
+          type="button"
+          @click="selectTag(t)"
+        >{{ t.name }}</button>
+      </div>
+
+      <!-- ============================================================
+           主体：内容流 + 侧栏
+           ============================================================ -->
+      <div class="board">
+        <div class="board__main">
+          <!-- ---------- 继续阅读（仅登录且读过文章） ---------- -->
+          <section v-if="recent.length" class="block">
+            <div class="block__head">
+              <h2>继续阅读</h2>
+              <span class="block__sub">最近读过</span>
+            </div>
+            <div class="recent">
+              <button
+                v-for="r in recent"
+                :key="r.id"
+                class="recent__item"
+                type="button"
+                @click="$emit('open-article', r.id)"
+              >
+                <span class="recent__top">
+                  <span class="recent__time">{{ relTime(r.viewedAt) }}</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h13M13 6l6 6-6 6" />
+                  </svg>
+                </span>
+                <span class="recent__title">{{ r.title }}</span>
+              </button>
             </div>
           </section>
 
-          <!-- ============ 搜索结果区 ============ -->
-          <section class="results">
-            <!-- 结果头部：标题 + 当前筛选条件 + 排序 -->
-            <div class="results__head">
-              <div class="results__headline">
-                <h2 class="results__title">
-                  <template v-if="loading">正在搜索…</template>
-                  <template v-else-if="query">“{{ query }}” 的搜索结果</template>
-                  <template v-else-if="activeFilterText">{{ activeFilterText }}</template>
-                  <template v-else>推荐内容</template>
-                </h2>
-                <span v-if="!loading && !error" class="results__count">共 {{ total }} 条</span>
-              </div>
+          <!-- ---------- 编辑精选：2 张封面卡 + 一张「浏览全部」入口 ---------- -->
+          <section v-if="showPicks" class="block">
+            <div class="block__head">
+              <h2>编辑精选</h2>
+              <span class="block__sub">按热度挑选</span>
+            </div>
+            <div class="picks">
+              <PickCard
+                v-for="(a, i) in picks"
+                :key="a.id"
+                :article="a"
+                :cover-src="coverAt(i + 1)"
+                :favorited="favIds.has(a.id)"
+                :show-fav="showFavBtn"
+                @open="$emit('open-article', $event)"
+                @open-category="onOpenCategory"
+                @toggle-fav="toggleFavorite"
+              />
+              <button class="picks__more" type="button" @click="scrollToFeed">
+                <span class="picks__more-num">{{ restCount }}</span>
+                <span class="picks__more-txt">篇待读<br>沿着列表往下翻</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M6 13l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+          </section>
 
-              <!-- 排序切换：热度 / 最新 -->
-              <div class="sorter">
-                <button
-                  class="sorter__btn"
-                  :class="{ 'sorter__btn--on': sort === 'hot' }"
-                  type="button"
-                  @click="changeSort('hot')"
-                >热度</button>
-                <button
-                  class="sorter__btn"
-                  :class="{ 'sorter__btn--on': sort === 'new' }"
-                  type="button"
-                  @click="changeSort('new')"
-                >最新</button>
-              </div>
+          <!-- ---------- 内容流 ---------- -->
+          <section class="block block--feed" :class="{ 'block--feed-filtered': hasFilter }">
+            <div class="block__head">
+              <h2>{{ resultsTitle }}</h2>
+              <span class="block__sub">{{ sort === 'hot' ? '按热度' : '按时间' }}</span>
             </div>
 
-            <!-- 当前生效的筛选条件（可逐个移除） -->
+            <!-- 当前生效的筛选条件 -->
             <div v-if="hasFilter" class="crt">
               <span class="crt__label">筛选</span>
               <span v-if="query" class="crt__chip">
-                关键词：{{ query }}
+                “{{ query }}”
                 <button type="button" aria-label="移除关键词" @click="removeKeyword">×</button>
               </span>
               <span v-if="currentCategory" class="crt__chip">
@@ -158,26 +266,25 @@
                 {{ currentTag.name }}
                 <button type="button" aria-label="移除标签" @click="selectTag(null)">×</button>
               </span>
-              <button class="crt__clear" type="button" @click="resetAll">清空全部</button>
+              <button class="crt__clear" type="button" @click="resetAll">清空</button>
             </div>
 
-            <!-- 加载骨架 -->
-            <div v-if="loading" class="skeleton">
-              <div v-for="n in 4" :key="n" class="sk-card">
-                <div class="sk-line sk-line--title"></div>
-                <div class="sk-line sk-line--sub"></div>
-                <div class="sk-line sk-line--sub sk-line--short"></div>
-                <div class="sk-meta">
-                  <span class="sk-chip"></span>
-                  <span class="sk-chip"></span>
+            <!-- 骨架 -->
+            <div v-if="loading && !list.length" class="skeleton">
+              <div v-for="n in 4" :key="n" class="sk-row">
+                <span class="sk-no"></span>
+                <div class="sk-body">
+                  <div class="sk-line sk-line--title"></div>
+                  <div class="sk-line sk-line--sub"></div>
+                  <div class="sk-line sk-line--meta"></div>
                 </div>
               </div>
             </div>
 
-            <!-- 错误提示（首屏失败：整块替换；追加失败：保留已加载内容，仅显示重试条） -->
+            <!-- 首屏失败 -->
             <div v-else-if="error && !list.length" class="state state--error">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                   stroke-linecap="round">
+                   stroke-linecap="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 8v4.5M12 16h.01" />
               </svg>
@@ -185,27 +292,37 @@
               <button class="state__btn" type="button" @click="runSearch(1)">重试</button>
             </div>
 
-            <!-- 空结果 -->
+            <!-- 空结果：给几个能点的出口，而不是只写「暂无内容」 -->
             <div v-else-if="!list.length" class="state">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                   stroke-linecap="round" stroke-linejoin="round">
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-3.6-3.6" />
                 <path d="M8 11h6" />
               </svg>
-              <p v-if="query || hasFilter">没有找到符合条件的内容，试试更换关键词或放宽筛选</p>
-              <p v-else>暂无内容</p>
+              <p>没有找到符合条件的内容</p>
+              <div v-if="hotTags.length" class="state__tips">
+                <span>换个方向试试</span>
+                <button
+                  v-for="t in hotTags.slice(0, 4)"
+                  :key="t.id"
+                  class="chip"
+                  type="button"
+                  @click="selectTag(t)"
+                >{{ t.name }}</button>
+              </div>
+              <button class="state__btn" type="button" @click="resetAll">查看全部内容</button>
             </div>
 
-            <!-- 结果列表（卡片可点击进入详情） -->
-            <div v-else class="rlist">
-              <ArticleCard
-                v-for="(a, i) in list"
+            <!-- 列表 -->
+            <div v-else class="feed">
+              <ArticleRow
+                v-for="(a, i) in rows"
                 :key="a.id"
                 :article="a"
+                :index="i + 1"
                 :favorited="favIds.has(a.id)"
-                :show-fav="!!user"
-                :featured="isFeatured(i)"
+                :show-fav="showFavBtn"
                 @open="$emit('open-article', $event)"
                 @open-category="onOpenCategory"
                 @open-tag="selectTagByName"
@@ -213,70 +330,40 @@
               />
             </div>
 
-            <!-- 无限滚动：滚到底自动追加下一页 -->
+            <!-- 无限滚动哨兵 -->
             <div v-if="!loading && !error && list.length" ref="sentinelEl" class="feed-sentinel" aria-hidden="true"></div>
 
-            <!-- 追加失败：保留内容，显示重试条 -->
             <div v-if="!loading && error && list.length" class="feed-more feed-more--err">
               加载失败：<button type="button" class="feed-more__retry" @click="runSearch(page + 1, true)">重试</button>
             </div>
 
-            <!-- 追加加载中 -->
-            <div v-if="!error && list.length && loading" class="feed-more">
+            <div v-if="error === '' && list.length && loading" class="feed-more">
               <span class="feed-more__spin"></span>正在加载更多…
             </div>
 
-            <!-- 到底提示 -->
             <div v-else-if="!loading && !error && list.length && !hasMore" class="feed-more feed-more--end">
-              <span class="feed-more__line"></span>已经到底啦，去别的分类逛逛吧<span class="feed-more__line"></span>
+              <span class="feed-more__line"></span>已经到底啦<span class="feed-more__line"></span>
             </div>
           </section>
         </div>
-        <!-- /board__main -->
 
-        <!-- ============ 右侧侧栏 ============ -->
+        <!-- ---------- 侧栏 ---------- -->
         <aside class="board__side" aria-label="站点侧栏">
-          <!-- 今日星语 + 随机探索 -->
-          <section class="side-card side-card--muse">
-            <h3 class="side-card__title">今日星语</h3>
-            <p class="muse">{{ muse }}</p>
-            <button class="muse__btn" type="button" :disabled="!pool.length" @click="goRandom">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 17h3.5l8-10H19" />
-                <path d="m16.5 4 3 3-3 3" />
-                <path d="M4 7h3.5l2.6 3.2" />
-              </svg>
-              随便逛逛
+          <section v-if="hotTags.length" class="side">
+            <h3 class="side__title">标签云<span>{{ hotTags.length }} 个</span></h3>
+            <TagCloud
+              :tags="hotTags"
+              :active-id="tagId"
+              :limit="18"
+              @select="selectTag"
+            />
+            <button class="side__link" type="button" @click="$emit('navigate', 'discover')">
+              在发现页浏览全部分类 →
             </button>
           </section>
 
-          <!-- 热门榜单 -->
-          <section v-if="topArticles.length" class="side-card">
-            <h3 class="side-card__title">热门榜单</h3>
-            <ol class="rank">
-              <li
-                v-for="(a, i) in topArticles"
-                :key="a.id"
-                class="rank__item"
-                tabindex="0"
-                role="button"
-                :aria-label="'阅读：' + a.title"
-                @click="$emit('open-article', a.id)"
-                @keydown.enter="$emit('open-article', a.id)"
-              >
-                <span class="rank__no" :class="'rank__no--' + (i + 1)">{{ i + 1 }}</span>
-                <span class="rank__body">
-                  <span class="rank__title">{{ a.title }}</span>
-                  <span class="rank__meta">{{ a.views }} 次浏览<template v-if="a.category"> · {{ a.category }}</template></span>
-                </span>
-              </li>
-            </ol>
-          </section>
-
-          <!-- 分类分布 -->
-          <section v-if="categories.length" class="side-card">
-            <h3 class="side-card__title">分类分布</h3>
+          <section v-if="categories.length" class="side">
+            <h3 class="side__title">分类分布<span>{{ categories.length }} 类</span></h3>
             <div class="dist">
               <button
                 v-for="c in categories"
@@ -293,9 +380,8 @@
             </div>
           </section>
 
-          <!-- 快捷入口 -->
-          <section class="side-card">
-            <h3 class="side-card__title">继续探索</h3>
+          <section class="side">
+            <h3 class="side__title">继续探索</h3>
             <div class="quick">
               <button
                 v-for="q in quickLinks"
@@ -306,19 +392,37 @@
               >
                 <span class="quick__dot" :style="{ background: q.color }"></span>
                 {{ q.name }}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
               </button>
             </div>
+            <button class="dice" type="button" :disabled="!pool.length" @click="goRandom">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 17h3.5l8-10H19" />
+                <path d="m16.5 4 3 3-3 3" />
+                <path d="M4 7h3.5l2.6 3.2" />
+              </svg>
+              随便逛逛
+            </button>
           </section>
+
+          <p class="side__foot">AURORA · 星海日志<br>把读过的技术，留在这片星海里</p>
         </aside>
       </div>
-      <!-- /board -->
     </main>
 
-    <footer class="foot">
-      <span>AURORA · 星海入口</span>
-      <span class="foot__dot"></span>
-      <span>首页 · 分级分类检索已接入后端接口</span>
-    </footer>
+    <!-- 回到顶部 -->
+    <Transition name="totop">
+      <button v-if="showTop" class="totop" type="button" aria-label="回到顶部" @click="toTop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 19V5M6 11l6-6 6 6" />
+        </svg>
+      </button>
+    </Transition>
   </div>
 </template>
 
@@ -326,10 +430,14 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import SearchBar from './SearchBar.vue'
 import SiteNav from './SiteNav.vue'
-import ArticleCard from './ArticleCard.vue'
+import PickCard from './PickCard.vue'
+import ArticleRow from './ArticleRow.vue'
+import TagCloud from './TagCloud.vue'
 import { searchArticles, fetchCategories, fetchHotTags } from '../api/search'
 import { fetchFavoriteIds, addFavorite, removeFavorite } from '../api/favorites'
 import { fetchOverview } from '../api/stats'
+import { fetchHistory } from '../api/history'
+import { coverAt } from '../utils/cover'
 import { toast } from '../composables/useToast'
 
 const props = defineProps({
@@ -341,12 +449,13 @@ const emit = defineEmits(['navigate', 'open-article', 'logout', 'need-login'])
 
 /* ---------- 用户信息 ---------- */
 const userName = computed(() => (props.user && props.user.name) || '探险家')
+const showFavBtn = computed(() => Boolean(props.user))
 
 /* ---------- 检索状态 ---------- */
 const PAGE_SIZE = 10
 
-const keyword = ref('')     // 输入框当前内容（v-model）
-const query = ref('')       // 已提交的关键词
+const keyword = ref('')      // 输入框当前内容（v-model）
+const query = ref('')        // 已提交的关键词
 const categoryId = ref(null) // 一级分类 id
 const tagId = ref(null)      // 二级标签 id
 const sort = ref('hot')      // hot | new
@@ -359,16 +468,14 @@ const loading = ref(false)
 const error = ref('')
 
 /* ---------- 分级分类数据 ---------- */
-const categories = ref([])   // 分类树
-const hotTags = ref([])      // 热门标签
+const categories = ref([])    // 分类树
+const hotTags = ref([])       // 热门标签
 const favIds = ref(new Set()) // 当前用户已收藏的文章 id 集合
 
 /* ---------- 站点概览 & 侧栏 ---------- */
 const overview = ref(null)  // { articles, categories, tags, totalViews, avgViews }
-const pool = ref([])        // 全站文章池（最多 50 条，供热门榜单与「随便逛逛」使用）
-
-/** 热门榜单只取前 5（pool 已按热度倒序） */
-const topArticles = computed(() => pool.value.slice(0, 5))
+const pool = ref([])        // 全站文章池（最多 50 条，供头条与「随便逛逛」使用）
+const recent = ref([])      // 最近阅读（登录用户）
 
 /** 分布条基准：取分类里的最大文章数，最小保留 8% 让零散分类也看得见 */
 const maxCategoryCount = computed(
@@ -396,57 +503,29 @@ const todayText = computed(() => {
   return `${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${week}`
 })
 
-/** 数字缩写：一万以上用「万」，让数据条在窄卡片里也能放得下 */
+/** 数字缩写：一万以上用「万」，让数据在窄容器里也能放得下 */
 function fmtNum (n) {
   const v = Number(n) || 0
   if (v < 10000) return String(v)
   return (v / 10000).toFixed(v >= 100000 ? 0 : 1) + ' 万'
 }
 
-/** 顶部数据条：全部来自 /api/stats/overview，取不到就整条不渲染 */
-const statCards = computed(() => {
-  const o = overview.value
-  if (!o) return []
-  return [
-    {
-      key: 'articles',
-      label: '篇文章',
-      value: fmtNum(o.articles),
-      icon: 'M5 4h11l3 3v13H5zM15 4v4h4M8.5 12h7M8.5 16h5'
-    },
-    {
-      key: 'categories',
-      label: '个分类',
-      value: fmtNum(o.categories),
-      icon: 'M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v4H4zM14 15h6v4h-6z'
-    },
-    {
-      key: 'tags',
-      label: '个标签',
-      value: fmtNum(o.tags),
-      icon: 'M4 11V5h6l9 9-6 6zM7.6 8.4h.01'
-    },
-    {
-      key: 'views',
-      label: '次累计浏览',
-      value: fmtNum(o.totalViews),
-      icon: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12ZM12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6Z'
-    }
-  ]
-})
-
-/** 今日星语：按「天」取模，同一天刷新不会变，跨天才换一句 */
-const MUSES = [
-  '所有遥远的星，都曾被某个人的目光点亮。',
-  '别急着抵达，先让路上有光。',
-  '看得越远，脚下的路越清楚。',
-  '星图不会告诉你终点，只提醒你方向。',
-  '慢一点也没关系，宇宙走了一百三十八亿年才到这里。',
-  '好奇心是最省油的引擎。',
-  '每一篇读完的文章，都是你走过的一段航线。',
-  '把问题问得再准一点，答案就会自己亮起来。'
-]
-const muse = computed(() => MUSES[Math.floor(Date.now() / 86400000) % MUSES.length])
+/** 「x 分钟前 / x 小时前 / x 天前 / 日期」 */
+function relTime (v) {
+  if (!v) return ''
+  const t = new Date(String(v).replace(' ', 'T')).getTime()
+  if (Number.isNaN(t)) return String(v).slice(0, 10)
+  const diff = Date.now() - t
+  if (diff < 0) return '刚刚'
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min} 分钟前`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `${h} 小时前`
+  const d = Math.floor(h / 24)
+  if (d < 30) return `${d} 天前`
+  return String(v).slice(0, 10)
+}
 
 /** 随便逛逛：从全站文章池里随机打开一篇 */
 function goRandom () {
@@ -479,15 +558,48 @@ const grandTotal = computed(() => categories.value.reduce((s, c) => s + (c.artic
 const hasFilter = computed(() => Boolean(query.value || categoryId.value || tagId.value))
 
 /**
- * 是否把第 i 条渲染成「精选」大卡片。
- * 只在默认推荐视图（无关键词、无筛选）且列表够长时启用：
- * 搜索结果、分类筛选下每条都是同等地位的命中项，突出一条会造成误导。
+ * 首屏头条：优先用全站最热的一篇（pool 已按热度倒序），
+ * 文章池还没回来时退到当前列表第一条，保证首屏右侧不空着。
  */
-function isFeatured (i) {
-  return i === 0 && !hasFilter.value && list.value.length > 3
-}
+const leadArticle = computed(() => pool.value[0] || list.value[0] || null)
 
-/** 结果区标题：没有关键词但有筛选条件时，用文字描述当前条件 */
+/**
+ * 是否拆成「精选 + 列表」。
+ * 只在默认推荐视图且内容够多时拆：搜索/筛选结果每条命中项地位相同，
+ * 单独拎几条出来当精选会误导用户。
+ */
+const showPicks = computed(() => !hasFilter.value && list.value.length > 4)
+
+/**
+ * 精选卡：从列表里排除已上头条的那篇，取前 2。
+ * 之前头条与精选第一条取的是同一批数据，首屏会出现两遍同一篇文章。
+ */
+const picks = computed(() => {
+  if (!showPicks.value) return []
+  const leadId = leadArticle.value && leadArticle.value.id
+  return list.value.filter((a) => a.id !== leadId).slice(0, 2)
+})
+
+/** 列表：默认视图去掉「头条 + 精选」已经在首屏出现过的条目，避免重复 */
+const rows = computed(() => {
+  if (!showPicks.value) return list.value
+  const shown = new Set(picks.value.map((a) => a.id))
+  const leadId = leadArticle.value && leadArticle.value.id
+  if (leadId != null) shown.add(leadId)
+  return list.value.filter((a) => !shown.has(a.id))
+})
+
+/** 「还有 N 篇」用的剩余数量 */
+const restCount = computed(() => Math.max((total.value || list.value.length) - 1 - picks.value.length, 0))
+
+/** 结果区标题 */
+const resultsTitle = computed(() => {
+  if (query.value) return `“${query.value}” 的结果`
+  if (activeFilterText.value) return activeFilterText.value
+  return sort.value === 'new' ? '最新发布' : '全部内容'
+})
+
+/** 没有关键词但有筛选条件时，用文字描述当前条件 */
 const activeFilterText = computed(() => {
   if (currentTag.value) {
     return currentCategory.value
@@ -551,16 +663,39 @@ function setupObserver () {
   if (observer) { observer.disconnect(); observer = null }
   if (!sentinelEl.value || typeof IntersectionObserver === 'undefined') return
   observer = new IntersectionObserver((entries) => {
-    // 哨兵进入视口且还有内容 -> 追加下一页
     if (entries.some((e) => e.isIntersecting)) loadMore()
-  }, { rootMargin: '320px 0px' })   // 提前 320px 预加载，滚动时不出现空档
+  }, { rootMargin: '320px 0px' })
   observer.observe(sentinelEl.value)
 }
 
-// 哨兵元素在「有内容且加载完成」后才渲染，用 watch 挂监听
 watch(sentinelEl, (el) => { if (el) setupObserver() })
 
-onBeforeUnmount(() => { if (observer) observer.disconnect() })
+/* ---------- 吸顶筛选条 & 回到顶部 ---------- */
+const filterSentinel = ref(null)
+const stuck = ref(false)
+const showTop = ref(false)
+let stickObserver = null
+
+/** 页面滚动位置：这站的滚动容器被 body 的 overflow 传播到了视口，三种取值兜底 */
+function scrollTop () {
+  return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0
+}
+
+function onScroll () {
+  showTop.value = scrollTop() > 620
+}
+
+function toTop () {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+/** 「还有 N 篇」：滚到内容流起点（预留吸顶条高度） */
+function scrollToFeed () {
+  const el = document.querySelector('.block--feed')
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+/* ---------- 交互 ---------- */
 
 /** 搜索框提交 */
 function onSearch (kw) {
@@ -568,6 +703,7 @@ function onSearch (kw) {
   keyword.value = k
   query.value = k
   runSearch(1)
+  scrollToFeed()
 }
 
 /** 搜索建议选中：标签 -> 按标签筛选；文章标题 -> 按关键词搜索 */
@@ -610,7 +746,7 @@ function selectTag (t) {
   const nextTag = tagId.value === t.id ? null : t.id
   tagId.value = nextTag
 
-  // 从热门标签点进来时，若该标签属于某个分类而当前未选中它，自动补上分类，
+  // 从热门标签 / 标签云点进来时，若该标签属于某个分类而当前未选中它，自动补上分类，
   // 这样二级导航会展开到正确的位置，用户能看清自己在哪一层。
   if (nextTag && t.categoryId && categoryId.value !== t.categoryId) {
     categoryId.value = t.categoryId
@@ -654,7 +790,7 @@ function resetAll () {
   runSearch(1)
 }
 
-/* ---------- 收藏（卡片星星按钮） ---------- */
+/* ---------- 收藏 ---------- */
 
 /** 加载当前用户收藏 id 集合（未登录跳过） */
 async function loadFavIds () {
@@ -674,7 +810,6 @@ async function loadFavIds () {
 async function toggleFavorite (article) {
   if (!props.user) return
   const on = favIds.value.has(article.id)
-  // 乐观更新
   const next = new Set(favIds.value)
   if (on) next.delete(article.id)
   else next.add(article.id)
@@ -684,7 +819,6 @@ async function toggleFavorite (article) {
     else await addFavorite(article.id)
     toast.success(on ? '已取消收藏' : '已收藏')
   } catch (e) {
-    // 失败回滚
     const rollback = new Set(favIds.value)
     if (on) rollback.add(article.id)
     else rollback.delete(article.id)
@@ -693,8 +827,21 @@ async function toggleFavorite (article) {
   }
 }
 
+/* ---------- 最近阅读 ---------- */
+async function loadRecent () {
+  if (!props.user) {
+    recent.value = []
+    return
+  }
+  try {
+    const res = await fetchHistory({ page: 1, size: 3 })
+    recent.value = (res && res.list) || []
+  } catch (_) {
+    recent.value = []
+  }
+}
+
 /* ---------- 跨页面初始筛选 ---------- */
-// 从发现页 / 详情页带着筛选条件跳回来时应用（initialFilter 是新对象即触发）
 watch(() => props.initialFilter, (f) => {
   if (!f) return
   keyword.value = ''
@@ -730,8 +877,9 @@ onMounted(async () => {
     hotTags.value = []
   }
   await loadFavIds()
+  loadRecent()
 
-  // 数据条与侧栏：与主列表并行拉取，失败时静默降级（页面其余部分照常可用）
+  // 概览与文章池：与主列表并行拉取，失败时静默降级（页面其余部分照常可用）
   fetchOverview()
     .then((o) => { overview.value = o })
     .catch(() => { overview.value = null })
@@ -740,929 +888,1224 @@ onMounted(async () => {
     .catch(() => { pool.value = [] })
 
   runSearch(1)
+
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+
+  // 筛选条离开原位（被吸住）时加底色，否则它会和后面的内容糊在一起
+  if (filterSentinel.value && typeof IntersectionObserver !== 'undefined') {
+    stickObserver = new IntersectionObserver(([e]) => {
+      stuck.value = e.boundingClientRect.top < 92
+    }, { threshold: [0, 1] })
+    stickObserver.observe(filterSentinel.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+  if (stickObserver) stickObserver.disconnect()
+  window.removeEventListener('scroll', onScroll)
 })
 </script>
 
 <style scoped>
-/* ============ 页面骨架 ============ */
+/* ============================================================
+   首页版式：深空编辑风
+   - 结构靠留白与发丝线，不靠层层玻璃卡片
+   - 强调色只出现在「当前状态」与行动点
+   ============================================================ */
 .home {
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 1180px;
-  min-height: 100vh;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 22px 24px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  padding: 0 24px 96px;
 }
-
-/* ============ 主体 ============ */
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 34px;
-  padding-top: 22px;
-}
-
-/* Hero */
-.hero {
-  position: relative;
-  text-align: center;
-  max-width: 760px;
-  width: 100%;
-  margin: 0 auto;
-  padding-top: 6px;
-  animation: rise 0.65s var(--ease) both;
-}
-/* 标题背后的柔光，让居中的标题不再是「孤零零一行字」 */
-.hero__aura {
+/* 背景是 position:fixed 的极光画布，它不跟着内容走。
+   页面变长之后，滚到列表区时正文就压在大片高饱和光斑上，灰字直接读不清。
+   这里铺一层「跟着内容走」的压暗渐变：首屏全透明（保留首屏的通透感），
+   往下逐渐收成接近 bg 的深色，正文区始终落在安静底上。
+   z-index:-1 让它落在 .home 的层叠上下文底部 —— 仍在 #bg/.grain 之上、正文之下。 */
+.home::before {
+  content: '';
   position: absolute;
-  left: 50%;
-  top: -90px;
-  width: 780px;
-  height: 460px;
-  transform: translateX(-50%);
-  background: radial-gradient(50% 50% at 50% 50%, rgba(124, 92, 255, 0.3), rgba(34, 211, 238, 0.08) 45%, transparent 72%);
-  filter: blur(28px);
-  pointer-events: none;
   z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 6, 15, 0) 0,
+    rgba(5, 6, 15, 0) 700px,
+    rgba(5, 6, 15, 0.42) 1120px,
+    rgba(5, 6, 15, 0.78) 1700px,
+    rgba(5, 6, 15, 0.88) 100%
+  );
 }
-.hero__badge {
-  display: inline-block;
-  font-size: 11px;
-  letter-spacing: 2px;
-  color: var(--a2);
-  border: 1px solid rgba(34, 211, 238, 0.45);
-  border-radius: 999px;
-  padding: 3px 13px;
-  margin-bottom: 20px;
-  background: rgba(34, 211, 238, 0.06);
+.page {
+  padding-top: 4px;
 }
+
+/* ---------------- Hero ---------------- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  gap: 52px;
+  align-items: center;
+  padding: 54px 0 40px;
+}
+.hero__copy {
+  min-width: 0;
+}
+.hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hero__pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--a2);
+  box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
+  animation: pulse 2.6s ease-out infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5); }
+  70% { box-shadow: 0 0 0 9px rgba(34, 211, 238, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+}
+
 .hero__title {
-  font-size: clamp(30px, 4vw, 46px);
-  line-height: 1.16;
+  margin-top: 16px;
+  font-size: clamp(30px, 3.5vw, 42px);
   font-weight: 600;
-  letter-spacing: -0.02em;
-  text-shadow: 0 6px 40px rgba(124, 92, 255, 0.25);
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+  color: var(--ink);
 }
 .hero__title em {
   font-style: normal;
-  background: linear-gradient(100deg, var(--a2), var(--a1) 45%, var(--a3));
+  background: linear-gradient(100deg, var(--a2), var(--a1) 52%, var(--a3));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   background-size: 200% auto;
-  animation: shine 6s linear infinite;
+  animation: shine 7s linear infinite;
 }
-.hero__sub {
-  color: var(--muted);
-  font-size: 15px;
-  font-weight: 300;
+
+.hero__lede {
   margin-top: 14px;
-  letter-spacing: 0.01em;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.8;
+  color: var(--muted);
 }
-
-/* ============ 数据概览条 ============ */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  animation: rise 0.7s var(--ease) both;
-}
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 15px 17px;
-  border-radius: 16px;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015) 60%),
-    rgba(10, 12, 26, 0.5);
-  border: 1px solid var(--stroke);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  transition: transform 0.3s var(--ease), border-color 0.3s, background 0.3s;
-}
-.stat:hover {
-  transform: translateY(-2px);
-  border-color: rgba(124, 92, 255, 0.4);
-}
-.stat__icon {
-  flex: none;
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
-  background: rgba(124, 92, 255, 0.16);
-  color: #c3b3ff;
-}
-.stat__icon svg {
-  width: 17px;
-  height: 17px;
-}
-.stat__num {
-  display: block;
-  font-size: 20px;
+.hero__lede b {
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  color: #cdd4f2;
   font-variant-numeric: tabular-nums;
-}
-.stat__label {
-  display: block;
-  font-size: 11.5px;
-  color: var(--muted);
-  font-weight: 300;
-  margin-top: 3px;
-}
-/* 四个数据各给一点色偏，避免整排看起来像复制粘贴 */
-.stat:nth-child(1) .stat__icon { background: rgba(124, 92, 255, 0.18); color: #c3b3ff; }
-.stat:nth-child(2) .stat__icon { background: rgba(34, 211, 238, 0.15); color: #8ceaf7; }
-.stat:nth-child(3) .stat__icon { background: rgba(255, 95, 162, 0.15); color: #ffa8c9; }
-.stat:nth-child(4) .stat__icon { background: rgba(255, 215, 110, 0.15); color: #ffdf9b; }
-
-/* ============ 主区两栏 ============ */
-.board {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 322px;
-  gap: 26px;
-  align-items: start;
-}
-.board__main {
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-  min-width: 0;
-}
-.board__side {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-self: start;
-  min-width: 0;
-}
-
-/* 侧栏卡片 */
-.side-card {
-  position: relative;
-  padding: 16px 16px 14px;
-  border-radius: 18px;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.012) 55%, rgba(255, 255, 255, 0.04)),
-    rgba(10, 12, 26, 0.55);
-  border: 1px solid var(--stroke);
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
-  overflow: hidden;
-  animation: rise 0.6s var(--ease) both;
-}
-.side-card__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #dfe4ff;
-  margin-bottom: 11px;
-}
-.side-card__title::before {
-  content: '';
-  width: 3px;
-  height: 12px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, var(--a2), var(--a1));
-}
-
-/* 今日星语 */
-.side-card--muse {
-  background:
-    radial-gradient(120% 110% at 0% 0%, rgba(124, 92, 255, 0.26), transparent 58%),
-    radial-gradient(120% 110% at 100% 100%, rgba(34, 211, 238, 0.18), transparent 58%),
-    rgba(10, 12, 26, 0.6);
-  border-color: rgba(124, 92, 255, 0.28);
-}
-.muse {
-  font-size: 13.5px;
-  line-height: 1.85;
-  color: #d5daf2;
-  font-weight: 300;
-  letter-spacing: 0.01em;
-  min-height: 50px;
-}
-.muse__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 13px;
-  padding: 7px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-  transition: background 0.25s, border-color 0.25s, transform 0.25s var(--ease);
-}
-.muse__btn svg {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
-}
-.muse__btn:hover:not(:disabled) {
-  background: rgba(124, 92, 255, 0.28);
-  border-color: rgba(124, 92, 255, 0.55);
-  transform: translateY(-1px);
-}
-.muse__btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* 热门榜单 */
-.rank {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.rank__item {
-  display: flex;
-  gap: 10px;
-  padding: 6px 8px;
-  margin: 0 -8px;
-  border-radius: 11px;
-  cursor: pointer;
-  transition: background 0.25s, transform 0.25s var(--ease);
-}
-.rank__item:hover {
-  background: rgba(255, 255, 255, 0.055);
-  transform: translateX(2px);
-}
-.rank__item:focus-visible {
-  outline: 2px solid var(--a1);
-  outline-offset: 1px;
-}
-.rank__no {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.07);
-  font-variant-numeric: tabular-nums;
-}
-.rank__no--1 { background: linear-gradient(135deg, #ffd76e, #ff9f45); color: #2b1a00; }
-.rank__no--2 { background: linear-gradient(135deg, #e2ebff, #9fb0cf); color: #1a2135; }
-.rank__no--3 { background: linear-gradient(135deg, #f2b98f, #cb8256); color: #2a1400; }
-.rank__body {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-.rank__title {
-  font-size: 12.8px;
-  line-height: 1.45;
-  color: #dfe4ff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  transition: color 0.25s;
-}
-.rank__item:hover .rank__title {
-  color: #fff;
-}
-.rank__meta {
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 300;
-}
-
-/* 分类分布 */
-.dist {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.dist__row {
-  display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) 22px;
-  align-items: center;
-  gap: 9px;
-  border: 0;
-  background: none;
-  padding: 2px 0;
-  font: inherit;
-  color: var(--muted);
-  cursor: pointer;
-  text-align: left;
-}
-.dist__name {
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.25s;
-}
-.dist__bar {
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  overflow: hidden;
-}
-.dist__bar i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--a1), var(--a2));
-  transition: width 0.7s var(--ease), filter 0.25s;
-}
-.dist__num {
-  font-size: 11.5px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.dist__row:hover .dist__name,
-.dist__row--on .dist__name {
-  color: #fff;
-}
-.dist__row:hover .dist__bar i,
-.dist__row--on .dist__bar i {
-  filter: brightness(1.35);
-}
-.dist__row--on .dist__num {
-  color: var(--a2);
-}
-
-/* 快捷入口 */
-.quick {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.quick__item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 10px;
-  border: 1px solid var(--stroke);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--muted);
-  font: inherit;
-  font-size: 12.2px;
-  cursor: pointer;
-  transition: color 0.25s, background 0.25s, border-color 0.25s, transform 0.25s var(--ease);
-}
-.quick__item:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(124, 92, 255, 0.45);
-  transform: translateY(-1px);
-}
-.quick__dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
 }
 
 .hero__search {
-  margin-top: 30px;
-  text-align: left;
+  margin-top: 26px;
+  max-width: 540px;
 }
 
-/* 热门标签 */
-.hero__tags {
+.hero__hot {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 9px;
-  margin-top: 22px;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 16px;
 }
-.hero__tags-label {
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 0.14em;
+.hero__hot-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  margin-right: 2px;
+  color: rgba(141, 151, 189, 0.7);
+  margin-right: 3px;
 }
-.tag {
+.chip {
   border: 1px solid var(--stroke);
-  background: var(--glass);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
   font: inherit;
-  font-size: 13px;
-  font-weight: 400;
-  padding: 6px 15px;
+  font-size: 12px;
+  padding: 4px 12px;
   border-radius: 999px;
   cursor: pointer;
-  transition: color 0.25s, background 0.25s, border-color 0.25s, transform 0.25s var(--ease);
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
 }
-.tag:hover {
+.chip:hover {
+  color: var(--ink);
+  border-color: rgba(124, 92, 255, 0.5);
+  background: rgba(124, 92, 255, 0.12);
+}
+.chip--on {
   color: #fff;
-  background: rgba(124, 92, 255, 0.22);
-  border-color: rgba(124, 92, 255, 0.55);
-  transform: translateY(-2px);
+  background: rgba(124, 92, 255, 0.28);
+  border-color: rgba(124, 92, 255, 0.65);
 }
 
-/* ============ 底部 ============ */
-.foot {
+.hero__stats {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 8px 0 2px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--muted);
-  letter-spacing: 0.04em;
+  align-items: stretch;
+  gap: 0;
+  margin-top: 30px;
+  list-style: none;
+  padding: 0;
 }
-.foot__dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--muted);
-  opacity: 0.6;
-}
-
-/* ============ 响应式 ============ */
-/* 桌面端让侧栏跟随滚动：正文很长时右侧不会拖着一大片空白 */
-@media (min-width: 1081px) {
-  .board__side {
-    position: sticky;
-    top: 18px;
-    max-height: calc(100vh - 36px);
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-  .board__side::-webkit-scrollbar {
-    display: none;
-  }
-}
-/* 1024 以下放不下「正文 + 322 侧栏」，侧栏改为正文下方的两列卡片 */
-@media (max-width: 1080px) {
-  .board {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-  .board__side {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    /* 不加这条，同一行的卡片会被拉成等高，短卡片（今日星语）下方会空一大块 */
-    align-items: start;
-  }
-}
-@media (max-width: 900px) {
-  .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .cats__row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 9px;
-  }
-  .cats__label {
-    min-width: 0;
-  }
-  .results__head {
-    flex-wrap: wrap;
-  }
-}
-@media (max-width: 640px) {
-  .home {
-    padding: 14px 14px 12px;
-    gap: 14px;
-  }
-  .main {
-    padding-top: 12px;
-    gap: 22px;
-  }
-  .board__side {
-    grid-template-columns: 1fr;
-  }
-  .stats {
-    gap: 9px;
-  }
-  .stat {
-    padding: 12px 13px;
-    gap: 9px;
-  }
-  .stat__icon {
-    width: 31px;
-    height: 31px;
-    border-radius: 9px;
-  }
-  .stat__num {
-    font-size: 17px;
-  }
-  .stat__label {
-    font-size: 10.5px;
-  }
-  .hero__aura {
-    width: 460px;
-    height: 320px;
-    top: -60px;
-  }
-  .hero__tags {
-    gap: 7px;
-  }
-  .results__head {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .foot {
-    flex-direction: column;
-    gap: 5px;
-  }
-  .foot__dot {
-    display: none;
-  }
-}
-
-/* ============ 分级分类导航 ============ */
-.cats {
+.hero__stats li {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px 22px;
-  border-radius: 20px;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015) 50%, rgba(255, 255, 255, 0.045)),
-    rgba(10, 12, 26, 0.52);
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
-  border: 1px solid var(--stroke);
-  animation: rise 0.55s var(--ease) both;
+  gap: 3px;
+  padding: 0 22px;
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
 }
-.cats__row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.hero__stats li:first-child {
+  padding-left: 0;
+  border-left: 0;
 }
-/* 第二级：与第一级之间加一条分隔，体现层级关系 */
-.cats__row--sub {
-  padding-top: 13px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.09);
-  animation: rise 0.4s var(--ease) both;
+.hero__stats b {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.cats__label {
-  flex: none;
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  min-width: 66px;
-}
-.cats__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.hero__stats span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(141, 151, 189, 0.8);
 }
 
-/* 一级分类 chip */
-.cat {
+/* ---- 今日头条：整卡封面 + 底部渐变 ---- */
+.lead {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--stroke);
+  box-shadow: 0 40px 80px -46px rgba(0, 0, 0, 0.95);
+  transition: transform 0.45s var(--ease), border-color 0.4s, box-shadow 0.45s;
+  outline: none;
+}
+.lead:hover {
+  transform: translateY(-4px);
+  border-color: rgba(124, 92, 255, 0.4);
+  box-shadow: 0 48px 90px -44px rgba(124, 92, 255, 0.5);
+}
+.lead:focus-visible {
+  outline: 2px solid var(--a1);
+  outline-offset: 3px;
+}
+.lead__cover {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 348px;
+  padding: 26px;
+  background-color: #0a0d1c;
+  background-size: cover;
+  background-position: center;
+}
+.lead__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(6, 7, 16, 0.15) 0%, rgba(6, 7, 16, 0.55) 46%, rgba(6, 7, 16, 0.94) 100%),
+    radial-gradient(120% 80% at 20% 100%, rgba(124, 92, 255, 0.28), transparent 60%);
+}
+.lead__badge {
+  position: absolute;
+  top: 18px;
+  left: 18px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid var(--stroke);
-  background: var(--glass);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 400;
-  padding: 6px 13px;
-  border-radius: 11px;
-  cursor: pointer;
-  transition: color 0.25s, background 0.25s, border-color 0.25s, transform 0.25s var(--ease);
-}
-.cat em {
-  font-style: normal;
-  font-size: 11px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.07);
+  gap: 5px;
+  padding: 4px 11px;
   border-radius: 999px;
-  padding: 1px 7px;
-  transition: color 0.25s, background 0.25s;
-}
-.cat:hover {
-  border-color: rgba(34, 211, 238, 0.5);
-  background: rgba(34, 211, 238, 0.12);
-  transform: translateY(-1px);
-}
-.cat--on {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(115deg, var(--a1), #5b8bff 55%, var(--a2));
-  box-shadow: 0 12px 26px -14px rgba(124, 92, 255, 0.9);
-}
-.cat--on em {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.22);
-}
-
-/* 二级标签 chip */
-.subtag {
-  border: 1px solid var(--stroke);
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12.5px;
-  padding: 5px 13px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color 0.25s, background 0.25s, border-color 0.25s, transform 0.25s var(--ease);
-}
-.subtag:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.08);
-  transform: translateY(-1px);
-}
-.subtag--on {
-  color: #06202b;
-  background: linear-gradient(115deg, var(--a2), #7ee8f5);
-  border-color: transparent;
+  font-size: 10.5px;
   font-weight: 600;
+  letter-spacing: 0.12em;
+  color: #1a1030;
+  background: linear-gradient(115deg, #ffe08a, #ffb347);
+  box-shadow: 0 8px 20px -10px rgba(255, 179, 71, 0.9);
 }
-
-/* 结果区头部：标题 + 排序 */
-/* 原样式表里缺了这一条（FavoritesPage 有、这里没有），导致「热度/最新」掉到标题下一行 */
-.results__head {
+.lead__badge svg {
+  width: 11px;
+  height: 11px;
+}
+.lead__body {
+  position: relative;
+  z-index: 1;
+}
+.lead__cat {
+  display: inline-block;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #e7ecff;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.25s, border-color 0.25s;
+}
+.lead__cat:hover {
+  background: rgba(124, 92, 255, 0.4);
+  border-color: rgba(124, 92, 255, 0.7);
+}
+.lead__title {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: #fff;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.lead__sum {
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 300;
+  line-height: 1.65;
+  color: rgba(216, 222, 245, 0.82);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.lead__foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
-.results__headline {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  min-width: 0;
-}
-.results__title {
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.results__count {
-  font-size: 12.5px;
-  color: var(--muted);
+.lead__meta {
+  font-size: 11.5px;
   font-weight: 300;
+  letter-spacing: 0.02em;
+  color: rgba(206, 214, 240, 0.72);
+}
+.lead__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
   white-space: nowrap;
 }
-.sorter {
-  display: flex;
-  gap: 4px;
-  flex: none;
-  padding: 3px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--stroke);
+.lead__go svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s var(--ease);
 }
-.sorter__btn {
-  border: 0;
-  background: transparent;
+.lead:hover .lead__go svg {
+  transform: translateX(4px);
+}
+.lead__fav {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 12, 24, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: color 0.25s, background 0.25s, border-color 0.25s;
+}
+.lead__fav svg {
+  width: 15px;
+  height: 15px;
+}
+.lead__fav:hover,
+.lead__fav--on {
+  color: #ffd76e;
+  border-color: rgba(255, 215, 110, 0.45);
+  background: rgba(255, 215, 110, 0.16);
+}
+
+/* ---------------- 吸顶筛选条 ---------------- */
+.stick-sentinel {
+  height: 1px;
+  margin-bottom: -1px;
+}
+.filter {
+  position: sticky;
+  top: 92px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 10px;
+  margin: 0 -10px 6px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.filter--stuck {
+  background: rgba(8, 10, 22, 0.86);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border-color: var(--stroke);
+  box-shadow: 0 20px 44px -30px rgba(0, 0, 0, 0.95);
+}
+.filter__cats {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.filter__cats::-webkit-scrollbar {
+  display: none;
+}
+.cat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid transparent;
+  background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 12.5px;
-  padding: 5px 14px;
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.25s, background 0.25s, border-color 0.25s;
+}
+.cat i {
+  font-style: normal;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.55;
+}
+.cat:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.05);
+}
+/* 当前分类：反白的实心药丸，和满屏紫色渐变按钮区分开 */
+.cat--on {
+  color: #0a0d1c;
+  background: #eef2ff;
+  border-color: #eef2ff;
+}
+.cat--on i {
+  opacity: 0.5;
+}
+.filter__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.filter__count {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: rgba(141, 151, 189, 0.75);
+}
+.seg {
+  display: flex;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.03);
+}
+.seg__btn {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
   border-radius: 8px;
   cursor: pointer;
   transition: color 0.25s, background 0.25s;
 }
-.sorter__btn:hover {
+.seg__btn:hover {
   color: var(--ink);
 }
-.sorter__btn--on {
+.seg__btn--on {
   color: #fff;
-  background: rgba(124, 92, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-/* ============ 当前筛选条件（面包屑） ============ */
-.crt {
+/* 二级标签 */
+.subtags {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  gap: 7px;
+  padding: 12px 2px 4px;
+}
+.subtag {
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.25s, background 0.25s, border-color 0.25s;
+}
+.subtag:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.07);
+}
+.subtag--on {
+  color: #c9c2ff;
+  background: rgba(124, 92, 255, 0.18);
+  border-color: rgba(124, 92, 255, 0.5);
+}
+
+/* ---------------- 主体 ---------------- */
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 286px;
+  gap: 48px;
+  align-items: start;
+  margin-top: 26px;
+}
+.board__main {
+  min-width: 0;
+}
+
+.block {
+  margin-bottom: 34px;
+  scroll-margin-top: 108px;
+}
+.block--feed {
+  scroll-margin-top: 108px;
+}
+.block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--stroke);
+}
+.block__head h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.block__sub {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(141, 151, 189, 0.7);
+}
+
+/* ---- 继续阅读 ---- */
+.recent {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.recent__item {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  margin: -6px 0 18px;
-  padding: 0 4px;
+  text-align: left;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.022);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.28s, border-color 0.28s, transform 0.28s var(--ease);
+}
+.recent__item:hover {
+  background: rgba(124, 92, 255, 0.1);
+  border-color: rgba(124, 92, 255, 0.4);
+  transform: translateY(-2px);
+}
+.recent__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(141, 151, 189, 0.85);
+}
+.recent__top svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0.7;
+  transition: transform 0.28s var(--ease);
+}
+.recent__item:hover .recent__top svg {
+  transform: translateX(3px);
+  color: var(--a2);
+}
+.recent__time {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+}
+.recent__title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #dfe4fb;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ---- 精选 ---- */
+.picks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.picks :deep(.pick__cover) {
+  height: 132px;
+}
+.picks__more {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.015);
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.3s, background 0.3s, color 0.3s;
+}
+.picks__more:hover {
+  border-color: rgba(124, 92, 255, 0.5);
+  background: rgba(124, 92, 255, 0.08);
+  color: var(--ink);
+}
+.picks__more-num {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.picks__more-txt {
+  font-size: 12.5px;
+  line-height: 1.55;
+  font-weight: 300;
+}
+.picks__more svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  opacity: 0.6;
+}
+
+/* ---- 筛选面包屑 ---- */
+.crt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 14px 0 4px;
+  font-size: 12px;
 }
 .crt__label {
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(141, 151, 189, 0.6);
+  margin-right: 2px;
 }
 .crt__chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
-  color: var(--ink);
-  background: rgba(124, 92, 255, 0.2);
-  border: 1px solid rgba(124, 92, 255, 0.45);
+  padding: 3px 6px 3px 11px;
   border-radius: 999px;
-  padding: 3px 6px 3px 12px;
+  border: 1px solid rgba(124, 92, 255, 0.38);
+  background: rgba(124, 92, 255, 0.14);
+  color: #cfc8ff;
 }
 .crt__chip--tag {
-  background: rgba(34, 211, 238, 0.16);
-  border-color: rgba(34, 211, 238, 0.45);
+  border-color: rgba(34, 211, 238, 0.3);
+  background: rgba(34, 211, 238, 0.1);
+  color: #a8ecf7;
 }
 .crt__chip button {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
   border: 0;
+  border-radius: 50%;
   background: rgba(255, 255, 255, 0.12);
   color: inherit;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  font: inherit;
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background 0.25s;
+  transition: background 0.2s;
 }
 .crt__chip button:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.26);
 }
 .crt__clear {
   border: 0;
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 12.5px;
-  padding: 0 4px;
+  font-size: 12px;
   cursor: pointer;
-  text-decoration: underline;
+  padding: 3px 4px;
   transition: color 0.25s;
 }
 .crt__clear:hover {
-  color: var(--ink);
+  color: #ff9db0;
 }
 
-/* 热门标签选中态 */
-.tag--on {
-  color: #fff;
-  background: linear-gradient(115deg, var(--a3), var(--a1));
-  border-color: transparent;
-  font-weight: 600;
-}
-
-/* ============ 结果列表 ============ */
-.rlist {
+/* ---- 列表 ---- */
+.feed {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+}
+.feed :deep(.row) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.feed :deep(.row:last-child) {
+  border-bottom: 0;
 }
 
-/* ============ 无限滚动（下拉浏览） ============ */
-/* 哨兵：1px 高的隐形元素，进入视口即触发加载下一页 */
-.feed-sentinel {
-  height: 1px;
-  margin-top: 14px;
-}
-.feed-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: 18px 0 6px;
-  font-size: 13px;
-  font-weight: 300;
-  color: var(--muted);
-  letter-spacing: 0.03em;
-}
-.feed-more__spin {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(124, 92, 255, 0.25);
-  border-top-color: var(--a1);
-  animation: feedspin 0.8s linear infinite;
-}
-@keyframes feedspin {
-  to { transform: rotate(360deg); }
-}
-.feed-more--end {
-  gap: 14px;
-}
-.feed-more__line {
-  width: 44px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--stroke), transparent);
-}
-.feed-more--err {
-  color: #ff8a9c;
-}
-.feed-more__retry {
-  border: 1px solid rgba(255, 138, 156, 0.45);
-  background: rgba(255, 95, 120, 0.1);
-  color: #ff8a9c;
-  font: inherit;
-  font-size: 12.5px;
-  padding: 3px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.25s;
-}
-.feed-more__retry:hover {
-  background: rgba(255, 95, 120, 0.22);
-}
-
-/* ============ 骨架 / 状态 ============ */
+/* ---- 骨架 ---- */
 .skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  padding-top: 8px;
 }
-.sk-card {
-  padding: 22px 24px 18px;
-  border-radius: 18px;
-  background: rgba(10, 12, 26, 0.5);
-  border: 1px solid var(--stroke);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.sk-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 18px;
+  padding: 20px 12px;
+}
+.sk-no {
+  width: 16px;
+  height: 11px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
 }
 .sk-line {
-  height: 13px;
-  border-radius: 7px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+  height: 11px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.055));
   background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  animation: sk 1.5s ease-in-out infinite;
 }
-.sk-line--title { width: 58%; height: 17px; }
-.sk-line--sub { width: 88%; }
-.sk-line--short { width: 45%; }
-@keyframes shimmer {
-  to { background-position: -200% 0; }
+.sk-line--title {
+  width: 62%;
+  height: 14px;
 }
-.sk-meta {
-  display: flex;
-  gap: 8px;
+.sk-line--sub {
+  width: 88%;
+  margin-top: 10px;
 }
-.sk-chip {
-  width: 64px;
-  height: 20px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  animation: shimmer 1.4s linear infinite;
-  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
-  background-size: 200% 100%;
+.sk-line--meta {
+  width: 34%;
+  height: 9px;
+  margin-top: 12px;
 }
+@keyframes sk {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- 状态 ---- */
 .state {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 70px 24px;
-  border-radius: 22px;
-  background: rgba(10, 12, 26, 0.5);
-  border: 1px dashed var(--stroke);
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 300;
+  padding: 54px 20px;
   text-align: center;
+  color: var(--muted);
 }
 .state svg {
-  width: 40px;
-  height: 40px;
-  opacity: 0.7;
+  width: 30px;
+  height: 30px;
+  opacity: 0.5;
 }
-.state--error svg {
-  color: #ff8098;
+.state p {
+  font-size: 13.5px;
+}
+.state__tips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: rgba(141, 151, 189, 0.75);
 }
 .state__btn {
+  margin-top: 6px;
   border: 1px solid var(--stroke);
-  background: var(--glass);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
-  padding: 8px 20px;
-  border-radius: 10px;
+  font-size: 12.5px;
+  padding: 8px 18px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: background 0.25s, transform 0.25s var(--ease);
+  transition: background 0.25s, border-color 0.25s;
 }
 .state__btn:hover {
-  background: var(--glass-2);
-  transform: translateY(-1px);
+  background: rgba(124, 92, 255, 0.16);
+  border-color: rgba(124, 92, 255, 0.5);
+}
+.state--error {
+  color: #ffb3c0;
+}
+
+/* ---- 加载更多 / 到底 ---- */
+.feed-sentinel {
+  height: 1px;
+}
+.feed-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 22px 0 8px;
+  font-size: 12px;
+  color: rgba(141, 151, 189, 0.8);
+}
+.feed-more--end {
+  color: rgba(141, 151, 189, 0.55);
+  gap: 12px;
+}
+.feed-more__line {
+  width: 44px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.feed-more__spin {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  border-top-color: var(--a2);
+  animation: spin 0.9s linear infinite;
+}
+.feed-more__retry {
+  border: 0;
+  background: none;
+  color: var(--a2);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ---------------- 侧栏 ---------------- */
+.board__side {
+  position: sticky;
+  top: 108px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.side {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.02);
+}
+.side__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(141, 151, 189, 0.85);
+}
+.side__title span {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  font-weight: 400;
+  color: rgba(141, 151, 189, 0.5);
+  text-transform: none;
+}
+.side__link {
+  margin-top: 10px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  color: rgba(141, 151, 189, 0.9);
+  cursor: pointer;
+  transition: color 0.25s;
+}
+.side__link:hover {
+  color: var(--a2);
+}
+
+/* 分类分布 */
+.dist {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dist__row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.25s;
+}
+.dist__row:hover,
+.dist__row--on {
+  background: rgba(255, 255, 255, 0.05);
+}
+.dist__name {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dist__row--on .dist__name {
+  color: var(--ink);
+}
+.dist__bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.dist__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--a1), var(--a2));
+  transition: width 0.5s var(--ease);
+}
+.dist__row--on .dist__bar i {
+  background: linear-gradient(90deg, var(--a2), #eef2ff);
+}
+.dist__num {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(141, 151, 189, 0.75);
+  text-align: right;
+}
+
+/* 快捷入口 */
+.quick {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.quick__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.25s, color 0.25s;
+}
+.quick__item svg {
+  width: 13px;
+  height: 13px;
+  margin-left: auto;
+  opacity: 0.45;
+  transition: transform 0.25s var(--ease), opacity 0.25s;
+}
+.quick__item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+}
+.quick__item:hover svg {
+  opacity: 1;
+  transform: translateX(2px);
+}
+.quick__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.dice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
+}
+.dice svg {
+  width: 14px;
+  height: 14px;
+}
+.dice:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.07);
+}
+.dice:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.side__foot {
+  padding: 4px 4px 0;
+  font-size: 10.5px;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  color: rgba(141, 151, 189, 0.42);
+}
+
+/* ---------------- 回到顶部 ---------------- */
+.totop {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  z-index: 8;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(10, 12, 26, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--muted);
+  cursor: pointer;
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.9);
+  transition: color 0.25s, border-color 0.25s, transform 0.25s var(--ease);
+}
+.totop svg {
+  width: 16px;
+  height: 16px;
+}
+.totop:hover {
+  color: var(--ink);
+  border-color: rgba(124, 92, 255, 0.5);
+  transform: translateY(-2px);
+}
+.totop-enter-active,
+.totop-leave-active {
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
+}
+.totop-enter-from,
+.totop-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* ---------------- 响应式 ---------------- */
+@media (max-width: 1080px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr) 250px;
+    gap: 34px;
+  }
+  .hero {
+    gap: 34px;
+  }
+  .lead__cover {
+    min-height: 312px;
+    padding: 22px;
+  }
+}
+
+@media (max-width: 1040px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+    padding: 40px 0 30px;
+  }
+  .hero__lede {
+    max-width: none;
+  }
+  .hero__search {
+    max-width: none;
+  }
+  .lead__cover {
+    min-height: 300px;
+  }
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+  .board__side {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .side__foot {
+    grid-column: 1 / -1;
+  }
+  .filter {
+    top: 86px;
+  }
+}
+
+@media (max-width: 720px) {
+  .home {
+    padding: 0 16px 72px;
+  }
+  .hero {
+    padding: 30px 0 24px;
+  }
+  /* 数据已在副文案里说过一遍，移动端不再重复占高度 */
+  .hero__stats {
+    display: none;
+  }
+  .hero__hot .chip:nth-of-type(n + 4) {
+    display: none;
+  }
+  .lead__cover {
+    min-height: 268px;
+    padding: 18px;
+  }
+  .lead__title {
+    font-size: 18.5px;
+  }
+  .hero__title {
+    font-size: 28px;
+  }
+  .board__side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .picks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+  }
+  .picks__more {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+  }
+  .picks__more-num {
+    font-size: 22px;
+  }
+  .picks__more-txt br {
+    display: none;
+  }
+  .picks__more svg {
+    margin-top: 0;
+  }
+  .recent {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .recent__item:last-child:nth-child(odd) {
+    display: none;
+  }
+  .filter {
+    top: 78px;
+    gap: 8px;
+    padding: 6px 6px;
+    margin: 0 -6px 4px;
+  }
+  .cat {
+    padding: 6px 11px;
+    font-size: 12.5px;
+  }
+  .filter__count {
+    display: none;
+  }
+  .seg__btn {
+    padding: 5px 9px;
+    font-size: 11.5px;
+  }
+  .block__head h2 {
+    font-size: 15.5px;
+  }
+  .totop {
+    right: 16px;
+    bottom: 16px;
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__pulse,
+  .hero__title em,
+  .sk-line,
+  .feed-more__spin {
+    animation: none;
+  }
 }
 </style>
