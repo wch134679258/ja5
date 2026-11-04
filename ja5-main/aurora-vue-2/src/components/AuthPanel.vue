@@ -52,6 +52,7 @@
         </FormField>
 
         <p class="code-hint" v-show="mode === 'signup'">请输入上方图片中的 4 位字母和数字（不区分大小写）</p>
+        <p class="code-hint" v-show="mode === 'signup'">注册要求：昵称 2-32 个字符；密码至少 8 位，且需同时包含字母和数字</p>
       </div>
 
       <!-- rows -->
